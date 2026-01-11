@@ -1,0 +1,23 @@
+{
+  "name": "zhoujie-claude-skills",
+  "owner": {
+    "name": "ZhouJie",
+    "email": "zhoujie@example.com"
+  },
+  "metadata": {
+    "description": "ZhouJie's custom Claude skills marketplace",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "zhoujie-skills",
+      "description": "Collection of custom skills including deep learning resources and news summarization",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/deep-learning",
+        "./skills/news-summary"
+      ]
+    }
+  ]
+}

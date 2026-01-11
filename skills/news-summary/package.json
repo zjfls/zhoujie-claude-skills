@@ -1,0 +1,21 @@
+{
+  "name": "news-summary-skill",
+  "version": "1.0.0",
+  "description": "搜索3-5天内的新闻，生成HTML摘要页面，支持AI解读功能",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "news",
+    "summary",
+    "ai",
+    "claude"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
