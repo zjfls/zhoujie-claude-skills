@@ -258,7 +258,7 @@
 
     async function updateButtonState(card, newsData, exists) {
         const { newsId, timestamp } = newsData;
-        const buttonContainer = card.querySelector('.card-footer');
+        const buttonContainer = card.querySelector('.news-actions');
 
         if (!buttonContainer) return;
 
