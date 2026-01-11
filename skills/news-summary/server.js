@@ -6,6 +6,11 @@ const { spawn } = require('child_process');
 
 const PORT = 3456;
 const BASE_DIR = __dirname;
+// 支持从环境变量或当前工作目录读取工作目录
+const WORK_DIR = process.env.NEWS_WORK_DIR || process.cwd();
+
+console.log(`Server BASE_DIR: ${BASE_DIR}`);
+console.log(`Server WORK_DIR: ${WORK_DIR}`);
 const ANALYSIS_TIMEOUT = 120000; // 120秒超时
 
 const MIME_TYPES = {
@@ -60,7 +65,7 @@ const server = http.createServer((req, res) => {
             return;
         }
 
-        const analysisFile = path.join(BASE_DIR, 'output', timestamp, 'analysis', `news_analysis_${newsId}.md`);
+        const analysisFile = path.join(WORK_DIR, 'news-summary', timestamp, 'analysis', `news_analysis_${newsId}.md`);
 
         fs.access(analysisFile, fs.constants.F_OK, (err) => {
             console.log('发送成功响应'); res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -81,7 +86,7 @@ const server = http.createServer((req, res) => {
                 const data = JSON.parse(body);
                 const { newsId, newsUrl, newsSource, newsTime, timestamp, title, summary, customPrompt } = data;
 
-                const analysisDir = path.join(BASE_DIR, 'output', timestamp, 'analysis');
+                const analysisDir = path.join(WORK_DIR, 'news-summary', timestamp, 'analysis');
                 const analysisFile = path.join(analysisDir, `news_analysis_${newsId}.md`);
 
                 // 构建AI提示词
@@ -219,7 +224,7 @@ ${output.trim()}
             return;
         }
 
-        const analysisFile = path.join(BASE_DIR, 'output', timestamp, 'analysis', `news_analysis_${newsId}.md`);
+        const analysisFile = path.join(WORK_DIR, 'news-summary', timestamp, 'analysis', `news_analysis_${newsId}.md`);
 
         fs.unlink(analysisFile, (err) => {
             if (err) {
@@ -246,7 +251,7 @@ ${output.trim()}
             return;
         }
 
-        const analysisFile = path.join(BASE_DIR, 'output', timestamp, 'analysis', `news_analysis_${newsId}.md`);
+        const analysisFile = path.join(WORK_DIR, 'news-summary', timestamp, 'analysis', `news_analysis_${newsId}.md`);
 
         fs.readFile(analysisFile, 'utf8', (err, data) => {
             if (err) {
@@ -299,6 +304,9 @@ ${output.trim()}
         return;
     }
 
+    // 支持两种路径：
+    // 1. /output/ - 从 skill 目录的 output 子目录（向后兼容）
+    // 2. /news-summary/ - 从当前工作目录的 news-summary 子目录
     if (pathname.startsWith('/output/')) {
         const filePath = path.join(BASE_DIR, pathname);
 
@@ -318,6 +326,24 @@ ${output.trim()}
         return;
     }
 
+    if (pathname.startsWith('/news-summary/')) {
+        const filePath = path.join(WORK_DIR, pathname);
+
+        fs.readFile(filePath, (err, data) => {
+            if (err) {
+                res.writeHead(404);
+                res.end('File not found');
+                return;
+            }
+
+            const ext = path.extname(filePath);
+            const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+
+            res.writeHead(200, { 'Content-Type': contentType });
+            res.end(data);
+        });
+        return;
+    }
     res.writeHead(404);
     res.end('Not found');
 });

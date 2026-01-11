@@ -34,14 +34,15 @@ description: 新闻搜索、新闻摘要、新闻汇总、热点新闻、最新�
    - **目录结构**：
      * 从用户查询中提取关键词作为目录名（如"deepseek"、"ai-news"）
      * 如果无法提取，使用时间戳作为后备
-     * 目录路径：`.claude/skills/news-summary/output/<dirname>/`
+     * 目录路径：当前工作目录下的 `news-summary/<dirname>/`
      * 文件名格式：`news_summary_<dirname>.html`
+     * 使用当前工作目录的绝对路径（通过pwd获取）确保文件正确生成
 
 4. **实现AI解读功能**：
    - 使用本地HTTP服务器（server.js，端口3456）处理AI解读请求
    - **真实AI解读**：通过Claude Code CLI生成真实的AI深度分析（不再是模板内容）
    - 每条新闻对应固定名字的AI解读文件：`news_analysis_<newsId>.md`
-   - 文件保存在：`.claude/skills/news-summary/output/<dirname>/analysis/`
+   - 文件保存在：`news-summary/<dirname>/analysis/`
    - **自定义prompt功能**：
      * 点击"AI解读"按钮后，弹出模态框让用户输入自定义分析角度
      * 支持指定特定的分析角度（如：技术影响、商业价值、用户体验等）
@@ -71,9 +72,9 @@ description: 新闻搜索、新闻摘要、新闻汇总、热点新闻、最新�
 5. **启动服务器并打开浏览器**：
    - 确保Node.js服务器运行（检查端口3456，如未运行则启动server.js）
    - 生成HTML后，通过HTTP URL打开浏览器
-   - Windows (PowerShell): `Start-Process "http://localhost:3456/output/<dirname>/news_summary_<dirname>.html"`
-   - macOS: `open "http://localhost:3456/output/<dirname>/news_summary_<dirname>.html"`
-   - Linux: `xdg-open "http://localhost:3456/output/<dirname>/news_summary_<dirname>.html"`
+   - Windows (PowerShell): `Start-Process "http://localhost:3456/news-summary/<dirname>/news_summary_<dirname>.html"`
+   - macOS: `open "http://localhost:3456/news-summary/<dirname>/news_summary_<dirname>.html"`
+   - Linux: `xdg-open "http://localhost:3456/news-summary/<dirname>/news_summary_<dirname>.html"`
    - **重要**：必须通过HTTP访问，不能使用file://协议，否则AI解读功能无法工作
 
 ## 工作流程
@@ -82,9 +83,9 @@ description: 新闻搜索、新闻摘要、新闻汇总、热点新闻、最新�
 2. 从用户查询中提取关键词作为目录名（如"deepseek"、"ai-news"），如无法提取则使用时间戳
 3. 搜索新闻（WebSearch 优先，不可用时用 Brave Search；Brave Search 需每次间隔 `sleep 1`）
 4. 分析和整理新闻信息
-5. 生成HTML文件到 `output/<dirname>/news_summary_<dirname>.html`（脚本路径：`/news-ai.js`）
+5. 生成HTML文件到 `当前工作目录/news-summary/<dirname>/news_summary_<dirname>.html`（脚本路径：`/news-ai.js`）
 6. 确保本地服务器运行（检查端口3456，如未运行则启动）
-7. 通过HTTP URL打开浏览器：`http://localhost:3456/output/<dirname>/news_summary_<dirname>.html`
+7. 通过HTTP URL打开浏览器：`http://localhost:3456/news-summary/<dirname>/news_summary_<dirname>.html`
 
 ## HTML模板要求
 
