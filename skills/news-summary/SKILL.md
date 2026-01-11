@@ -43,7 +43,7 @@ description: 新闻搜索、新闻摘要、新闻汇总、热点新闻、最新�
   * 卡片式新闻展示
   * 每条新闻包含：标题、来源、时间、权威性标签、摘要
   * 两个按钮："查看原文" 和 "AI解读"
-  * 必须包含前端脚本：`<script src="/news-ai.js"></script>`
+  * **必须在 </body> 前包含**：`<script src="/news-ai.js"></script>`
 
 ### 4. AI 解读功能
 - **服务器**：Node.js HTTP 服务器(lib/server.js，端口 3456)
@@ -64,13 +64,19 @@ description: 新闻搜索、新闻摘要、新闻汇总、热点新闻、最新�
   * `GET /news-summary/<timestamp_topic>/<filename>` - 静态文件服务
   * `GET /news-ai.js` - 前端脚本
 
-### 5. 启动服务器并打开浏览器
-- **启动服务器**（如果未运行）：
-  * 检查端口：`netstat -ano | grep 3456` 或 `netstat -ano | findstr 3456`
-  * 如果未运行，启动服务器：
-    - Windows: `start /B node lib/server.js`
-    - macOS/Linux: `node lib/server.js &`
-  * 验证启动：访问 `http://localhost:3456/news-ai.js` 应该返回 JavaScript 代码
+### 5. 重启服务器并打开浏览器
+- **重启服务器步骤**（每次生成后必须执行）：
+  1. 检查端口 3456 是否被占用：
+     - Windows: `netstat -ano | findstr 3456`
+     - macOS/Linux: `lsof -ti:3456` 或 `netstat -ano | grep 3456`
+  2. 如果端口被占用，停止旧服务器：
+     - Windows: `taskkill /F /PID <进程ID>`
+     - macOS/Linux: `kill -9 <进程ID>`
+  3. 重新启动服务器：
+     - Windows: `start /B node <skill目录>/lib/server.js`
+     - macOS/Linux: `node <skill目录>/lib/server.js &`
+  4. 等待 2 秒确保服务器启动
+  5. 验证启动：访问 `http://localhost:3456/news-ai.js` 应该返回 JavaScript 代码
 - 生成 HTML 后，通过 HTTP 打开浏览器
 - **浏览器命令**：
   * Windows: `Start-Process "http://localhost:3456/news-summary/<timestamp_topic>/news_summary_<topic>.html"`
@@ -89,23 +95,32 @@ description: 新闻搜索、新闻摘要、新闻汇总、热点新闻、最新�
 4. 分析和整理新闻信息
 5. **获取当前工作目录**：使用 Bash 命令 `pwd` 获取绝对路径
 6. **创建目录**：`<当前工作目录>/news-summary/<timestamp>_<topic>/`
-7. 生成 HTML 到：`<当前工作目录>/news-summary/<timestamp>_<topic>/news_summary_<topic>.html`
-8. **启动服务器**（如果未运行）：检查端口 3456，未运行则启动 `node lib/server.js`
+7. **生成 HTML**：
+   - 文件路径：`<当前工作目录>/news-summary/<timestamp>_<topic>/news_summary_<topic>.html`
+   - **必须在 </body> 前添加**：`<script src="/news-ai.js"></script>`
+   - 每个新闻卡片必须包含 data 属性（data-news-id, data-news-url, data-news-source, data-news-time）
+8. **重启服务器**：
+   - 检查端口 3456 是否被占用
+   - 如果被占用，停止旧服务器
+   - 启动新服务器：`node <skill目录>/lib/server.js &`
+   - 等待 2 秒并验证
 9. 打开浏览器：`http://localhost:3456/news-summary/<timestamp>_<topic>/news_summary_<topic>.html`
 
 ## HTML 模板要求
 
 - 现代简洁设计，响应式布局
 - 卡片式新闻展示
-- 每个新闻卡片必须包含 data 属性：
+- **每个新闻卡片必须包含 data 属性**：
   * `data-news-id`: 新闻 ID（0, 1, 2...）
   * `data-news-url`: 原文链接
   * `data-news-source`: 来源
   * `data-news-time`: 发布时间
+  * `data-news-title`: 新闻标题
+  * `data-news-summary`: 新闻摘要
 - 权威性标签：高（绿色）、中（黄色）、低（灰色）
 - 相对时间显示（如：2天前）
-- **必须在底部引入**：`<script src="/news-ai.js"></script>`（绝对路径）
-- AI 解读按钮由 news-ai.js 动态管理
+- **必须在 </body> 前引入**：`<script src="/news-ai.js"></script>`（使用绝对路径）
+- **初始只包含"查看原文"按钮**，AI 解读按钮由 news-ai.js 在页面加载后动态添加
 
 ## 注意事项
 
@@ -113,5 +128,6 @@ description: 新闻搜索、新闻摘要、新闻汇总、热点新闻、最新�
 - 创建必要的目录结构
 - 处理网络请求失败
 - 验证新闻来源可靠性
-- 确保 HTML 包含 JavaScript 处理 AI 解读
+- **必须在 HTML 中包含** `<script src="/news-ai.js"></script>`，否则 AI 解读功能不可用
 - **时间戳格式**：必须使用 `YYYYMMDD_HHMM` 格式，确保每次搜索都有唯一目录
+- **服务器必须重启**：每次生成新闻后必须重启服务器，确保 WORK_DIR 指向当前工作目录
