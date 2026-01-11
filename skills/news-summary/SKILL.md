@@ -44,7 +44,7 @@ description: 新闻搜索、新闻摘要、新闻汇总、热点新闻、最新�
   * 必须包含前端脚本：`<script src="/news-ai.js"></script>`
 
 ### 4. AI 解读功能
-- **服务器**：Node.js HTTP 服务器(index.js，端口 3456)
+- **服务器**：Node.js HTTP 服务器(lib/server.js，端口 3456)
 - **真实 AI 分析**：通过 Claude Code CLI 生成深度解读
 - **自定义 Prompt**：点击"AI解读"按钮后可输入自定义分析角度
 - **阻塞和超时**：
@@ -63,7 +63,7 @@ description: 新闻搜索、新闻摘要、新闻汇总、热点新闻、最新�
   * `GET /news-ai.js` - 前端脚本
 
 ### 5. 启动服务器并打开浏览器
-- 确保 Node.js 服务器运行（检查端口 3456，未运行则启动 index.js）
+- 确保 Node.js 服务器运行（检查端口 3456，未运行则启动 lib/server.js）
 - 生成 HTML 后，通过 HTTP 打开浏览器
 - **浏览器命令**：
   * Windows: `Start-Process "http://localhost:3456/news-summary/<topic>/news_summary_<topic>.html"`
