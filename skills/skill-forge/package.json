@@ -1,0 +1,25 @@
+{
+  "name": "skill-forge",
+  "version": "1.0.0",
+  "description": "Intelligent quiz system with AI tutoring for skill improvement",
+  "main": "lib/server.js",
+  "scripts": {
+    "start": "node lib/server.js",
+    "install-deps": "npm install"
+  },
+  "keywords": [
+    "quiz",
+    "learning",
+    "ai",
+    "education",
+    "skill-building"
+  ],
+  "author": "ZhouJie",
+  "license": "MIT",
+  "dependencies": {
+    "sqlite3": "^5.1.7"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

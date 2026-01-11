@@ -11,12 +11,13 @@
   "plugins": [
     {
       "name": "zhoujie-skills",
-      "description": "Collection of custom skills including deep learning resources and news summarization",
+      "description": "Collection of custom skills including deep learning resources, news summarization, and intelligent quiz system",
       "source": "./",
       "strict": false,
       "skills": [
         "./skills/deep-learning",
-        "./skills/news-summary"
+        "./skills/news-summary",
+        "./skills/skill-forge"
       ]
     }
   ]
