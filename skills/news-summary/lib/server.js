@@ -93,7 +93,9 @@ const server = http.createServer((req, res) => {
                 const newsTitle = title || '未知标题';
                 const newsSummary = summary || '暂无摘要';
 
-                let aiPrompt = `请对以下新闻进行深度分析解读，并生成一个完整的HTML页面。
+                let aiPrompt = `你是一个HTML生成器。你的任务是生成一个完整的HTML页面。
+
+重要：你的输出必须是纯HTML代码，从<!DOCTYPE html>开始，到</html>结束。不要包含任何解释性文字、说明或其他内容。
 
 ## 新闻信息
 - **标题**: ${newsTitle}
@@ -105,7 +107,7 @@ const server = http.createServer((req, res) => {
 ${newsSummary}
 
 ## 分析要求
-请提供详细的新闻分析，包括以下方面：
+请对这条新闻进行深度分析，包括：
 1. **背景分析**：事件的历史背景和相关上下文
 2. **关键要点**：提炼出最重要的3-5个要点
 3. **影响评估**：分析对行业、技术、用户等方面的影响
@@ -115,15 +117,25 @@ ${newsSummary}
                     aiPrompt += `\n\n## 用户自定义分析角度\n${customPrompt}`;
                 }
 
-                aiPrompt += `\n\n## 输出格式要求
-请直接输出一个完整的HTML页面（包含<!DOCTYPE html>、<html>、<head>、<body>等标签），页面需要：
+                aiPrompt += `
+
+## HTML页面要求
 1. 使用现代化的CSS样式，美观易读
 2. 响应式设计，适配移动端和桌面端
 3. 使用渐变背景和卡片布局
 4. 包含新闻信息、分析内容、底部版权等完整结构
 5. 颜色主题使用 #667eea 和 #764ba2 渐变
 6. 字体使用系统默认字体栈
-7. 不要使用Markdown格式，直接输出HTML代码`;
+
+## 输出格式
+你必须只输出HTML代码，从<!DOCTYPE html>开始。
+不要输出任何其他文字，包括：
+- 不要说"我为您生成了..."
+- 不要说"页面包含..."
+- 不要说"如果您需要..."
+- 只输出纯HTML代码，没有任何解释
+
+立即开始输出HTML代码：`;
 
                 // 创建分析目录
                 if (!fs.existsSync(analysisDir)) {
@@ -178,8 +190,18 @@ ${newsSummary}
                         return;
                     }
 
-                    // 直接保存 Claude 输出的 HTML 内容
-                    const htmlContent = output.trim();
+                    // 提取 HTML 内容
+                    let htmlContent = output.trim();
+
+                    // 尝试提取 HTML 代码（如果 Claude 输出了额外的文字）
+                    const htmlMatch = htmlContent.match(/<!DOCTYPE html>[\s\S]*<\/html>/i);
+                    if (htmlMatch) {
+                        htmlContent = htmlMatch[0];
+                        console.log('成功提取HTML代码');
+                    } else if (!htmlContent.startsWith('<!DOCTYPE')) {
+                        // 如果没有找到完整的 HTML，但内容不是以 <!DOCTYPE 开头，记录警告
+                        console.warn('警告：输出可能不是有效的HTML');
+                    }
 
                     fs.writeFile(analysisFile, htmlContent, 'utf8', (err) => {
                         if (err) {
