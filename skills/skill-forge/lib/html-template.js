@@ -311,7 +311,8 @@ function generateQuizHTML(quiz, questions) {
             background: #f9fafb;
         }
 
-        .option-item input[type="radio"] {
+        .option-item input[type="radio"],
+        .option-item input[type="checkbox"] {
             margin-right: 12px;
             width: 20px;
             height: 20px;
@@ -564,6 +565,7 @@ function generateQuizHTML(quiz, questions) {
 function generateQuestionCard(question) {
     const typeMap = {
         'choice': '选择题',
+        'multiple_choice': '多选题',
         'essay': '问答题',
         'code': '代码题'
     };
@@ -571,13 +573,27 @@ function generateQuestionCard(question) {
     let answerArea = '';
 
     if (question.question_type === 'choice') {
-        // 选择题
+        // 单选题
         const options = question.options || [];
         answerArea = `
             <div class="question-options">
                 ${options.map((opt, i) => `
                     <label class="option-item">
                         <input type="radio" name="question_${question.question_number}" value="${String.fromCharCode(65 + i)}">
+                        <span class="option-label"><strong>${String.fromCharCode(65 + i)}.</strong> ${opt}</span>
+                    </label>
+                `).join('')}
+            </div>
+        `;
+    } else if (question.question_type === 'multiple_choice') {
+        // 多选题
+        const options = question.options || [];
+        answerArea = `
+            <div class="question-options" data-type="multiple">
+                <p style="color: #667eea; font-size: 14px; margin-bottom: 10px;">💡 提示：可多选</p>
+                ${options.map((opt, i) => `
+                    <label class="option-item">
+                        <input type="checkbox" name="question_${question.question_number}" value="${String.fromCharCode(65 + i)}">
                         <span class="option-label"><strong>${String.fromCharCode(65 + i)}.</strong> ${opt}</span>
                     </label>
                 `).join('')}

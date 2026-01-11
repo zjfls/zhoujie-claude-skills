@@ -250,6 +250,21 @@ vi ~/.skill-forge/config.json
    - 确保题目具有知识点标签
    - 生成详细的解析和标准答案
 
+   **网络搜索习题（可选增强）**：
+   
+   当需要从网络获取真实习题资源时，遵循以下策略：
+   
+   1. **优先使用 websearch**：首先尝试使用内置的 `search_web` 工具搜索习题
+   2. **备用 brave-search**：如果 websearch 搜索不到结果或结果质量不佳，切换到 `brave-search` MCP 工具
+   3. **API 速率限制**：使用 brave-search 时，**每次请求之间必须间隔至少 1 秒**，以避免 API rate limit 错误
+   
+   ```
+   搜索策略示例：
+   1. search_web("JavaScript 闭包 面试题") 
+   2. 如果结果不足 → 等待1秒 → brave_web_search("JavaScript closure interview questions")
+   3. 如果仍不足 → 等待1秒 → brave_web_search("JavaScript 闭包 笔试题 考试题")
+   ```
+
    **题目去重机制（三层策略）**：
 
    **第一层：内容哈希精确匹配**（最快，database层）

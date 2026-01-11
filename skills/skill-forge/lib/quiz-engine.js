@@ -1,4 +1,4 @@
-(function() {
+(function () {
     'use strict';
 
     // ==================== 全局状态管理 ====================
@@ -188,9 +188,16 @@
         if (!question) return;
 
         if (question.question_type === 'choice') {
-            // 选择题
+            // 单选题
             const radio = card.querySelector(`input[value="${answer}"]`);
             if (radio) radio.checked = true;
+        } else if (question.question_type === 'multiple_choice') {
+            // 多选题 - 答案是逗号分隔的字符串如 "A,B,C"
+            const selectedOptions = answer.split(',').map(s => s.trim());
+            selectedOptions.forEach(opt => {
+                const checkbox = card.querySelector(`input[type="checkbox"][value="${opt}"]`);
+                if (checkbox) checkbox.checked = true;
+            });
         } else {
             // 问答题/代码题
             const textarea = card.querySelector('textarea');
@@ -234,12 +241,24 @@
 
     // 为所有答题输入绑定保存事件
     document.addEventListener('DOMContentLoaded', () => {
-        // 选择题
+        // 单选题
         document.querySelectorAll('.question-card input[type="radio"]').forEach(radio => {
             radio.addEventListener('change', (e) => {
                 const card = e.target.closest('.question-card');
                 const questionNum = parseInt(card.getAttribute('data-question'));
                 saveAnswer(questionNum, e.target.value);
+            });
+        });
+
+        // 多选题
+        document.querySelectorAll('.question-card input[type="checkbox"]').forEach(checkbox => {
+            checkbox.addEventListener('change', (e) => {
+                const card = e.target.closest('.question-card');
+                const questionNum = parseInt(card.getAttribute('data-question'));
+                // 收集所有选中的选项
+                const checkedBoxes = card.querySelectorAll('input[type="checkbox"]:checked');
+                const selectedValues = Array.from(checkedBoxes).map(cb => cb.value).sort().join(',');
+                saveAnswer(questionNum, selectedValues);
             });
         });
 
@@ -605,7 +624,7 @@
 
     function debounce(func, wait) {
         let timeout;
-        return function(...args) {
+        return function (...args) {
             clearTimeout(timeout);
             timeout = setTimeout(() => func.apply(this, args), wait);
         };
