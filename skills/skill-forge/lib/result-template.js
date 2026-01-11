@@ -618,6 +618,9 @@ function generateResultHTML(quiz, submission, questions, answers) {
             <button class="btn btn-secondary" onclick="window.history.back()">← 返回</button>
             <button class="btn btn-secondary" onclick="viewHistory()">📊 查看历史记录</button>
             <button class="btn btn-primary" onclick="retakeQuiz()">🔄 重新测验</button>
+            <button class="btn btn-primary" onclick="generateLearningPlan()" style="background: linear-gradient(135deg, #43e97b, #38f9d7);">
+                📚 生成学习计划
+            </button>
         </div>
     </div>
 
@@ -641,6 +644,417 @@ function generateResultHTML(quiz, submission, questions, answers) {
                 // 跳转到测验页面
                 window.location.href = '/quizzes/${quiz.quiz_id}/quiz.html';
             }
+        }
+
+        // ==================== 学习计划生成功能 ====================
+
+        async function generateLearningPlan() {
+            // 分析薄弱知识点
+            const weakPoints = analyzeWeakPoints();
+
+            if (weakPoints.critical.length === 0 && weakPoints.moderate.length === 0) {
+                alert('🎉 恭喜！你已经掌握了所有知识点，无需额外学习。\\n\\n建议：可以挑战更高难度的测验。');
+                return;
+            }
+
+            // 显示加载动画
+            showLoadingModal();
+
+            try {
+                // 调用后端 API 生成 AI 学习计划
+                const response = await fetch('/api/generate-ai-learning-plan', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        submission_id: '${submission.submission_id}'
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('生成学习计划失败');
+                }
+
+                const data = await response.json();
+                const learningPlan = data.learningPlan;
+
+                // 关闭加载动画
+                closeLoadingModal();
+
+                // 显示学习计划模态框
+                showLearningPlanModal(learningPlan, weakPoints);
+
+            } catch (error) {
+                closeLoadingModal();
+                alert('❌ 生成学习计划失败：' + error.message + '\\n\\n请稍后重试。');
+                console.error('生成学习计划失败:', error);
+            }
+        }
+
+        function analyzeWeakPoints() {
+            const knowledgeStats = ${JSON.stringify(knowledgeStats)};
+
+            const critical = [];   // 掌握率 < 60%
+            const moderate = [];   // 掌握率 60-80%
+            const good = [];       // 掌握率 >= 80%
+
+            for (const [kp, stat] of Object.entries(knowledgeStats)) {
+                const percent = (stat.correct / stat.total * 100);
+                const item = {
+                    name: kp,
+                    percent: percent.toFixed(1),
+                    correct: stat.correct,
+                    total: stat.total
+                };
+
+                if (percent < 60) {
+                    critical.push(item);
+                } else if (percent < 80) {
+                    moderate.push(item);
+                } else {
+                    good.push(item);
+                }
+            }
+
+            // 按掌握率排序（从低到高）
+            critical.sort((a, b) => parseFloat(a.percent) - parseFloat(b.percent));
+            moderate.sort((a, b) => parseFloat(a.percent) - parseFloat(b.percent));
+
+            return { critical, moderate, good };
+        }
+
+        function showLoadingModal() {
+            const modal = document.createElement('div');
+            modal.id = 'loading-modal';
+            modal.style.cssText = \`
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.85);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 2000;
+                animation: fadeIn 0.3s ease;
+            \`;
+
+            modal.innerHTML = \`
+                <div style="
+                    background: white;
+                    border-radius: 16px;
+                    padding: 40px;
+                    text-align: center;
+                    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+                ">
+                    <div style="
+                        width: 60px;
+                        height: 60px;
+                        border: 4px solid #f3f3f3;
+                        border-top: 4px solid #667eea;
+                        border-radius: 50%;
+                        margin: 0 auto 20px;
+                        animation: spin 1s linear infinite;
+                    "></div>
+                    <h3 style="color: #333; font-size: 20px; margin-bottom: 10px;">
+                        🤖 AI 正在分析你的测验结果
+                    </h3>
+                    <p style="color: #666; font-size: 14px;">
+                        分析错题原因，生成个性化学习计划...<br>
+                        这可能需要 30-60 秒
+                    </p>
+                </div>
+            \`;
+
+            const style = document.createElement('style');
+            style.textContent = \`
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+            \`;
+            document.head.appendChild(style);
+
+            document.body.appendChild(modal);
+        }
+
+        function closeLoadingModal() {
+            const modal = document.getElementById('loading-modal');
+            if (modal) {
+                document.body.removeChild(modal);
+            }
+        }
+
+        function showLearningPlanModal(learningPlan, weakPoints) {
+            const analysis = learningPlan.analysis || {};
+            const stats = learningPlan.stats || {};
+            const prompt = learningPlan.deepLearningPrompt || '';
+            const suggestions = learningPlan.suggestions || [];
+            const focusAreas = learningPlan.focusAreas || [];
+
+            // 创建模态框
+            const modal = document.createElement('div');
+            modal.id = 'learning-plan-modal';
+            modal.style.cssText = \`
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.85);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 1000;
+                padding: 20px;
+                animation: fadeIn 0.3s ease;
+            \`;
+
+            const totalWeak = stats.critical?.length || 0 + stats.moderate?.length || 0;
+            const criticalList = (stats.critical || []).map(p => \`<span style="display: inline-block; margin: 4px 8px 4px 0;">\${p.name} <strong style="color: #dc3545;">(\${p.percent}%)</strong></span>\`).join('');
+            const moderateList = (stats.moderate || []).map(p => \`<span style="display: inline-block; margin: 4px 8px 4px 0;">\${p.name} <strong style="color: #ffc107;">(\${p.percent}%)</strong></span>\`).join('');
+
+            modal.innerHTML = \`
+                <div style="
+                    background: white;
+                    border-radius: 16px;
+                    padding: 35px;
+                    max-width: 750px;
+                    width: 100%;
+                    max-height: 85vh;
+                    overflow-y: auto;
+                    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+                    animation: slideUp 0.3s ease;
+                ">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px;">
+                        <h2 style="color: #333; font-size: 26px; margin: 0;">
+                            📚 个性化学习计划
+                        </h2>
+                        <button onclick="closeModal()" style="
+                            background: none;
+                            border: none;
+                            font-size: 28px;
+                            color: #999;
+                            cursor: pointer;
+                            line-height: 1;
+                            padding: 0;
+                            width: 32px;
+                            height: 32px;
+                        ">&times;</button>
+                    </div>
+
+                    <div style="background: linear-gradient(135deg, #fff5f5 0%, #fff8e1 100%); padding: 20px; border-radius: 12px; margin-bottom: 20px; border-left: 4px solid #dc3545;">
+                        <h3 style="color: #666; font-size: 17px; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 20px;">📊</span> 薄弱知识点分析
+                        </h3>
+                        \${(stats.critical?.length || 0) > 0 ? \`
+                            <div style="margin-bottom: 12px;">
+                                <div style="font-weight: 600; color: #dc3545; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                                    <span style="font-size: 18px;">🔴</span> 急需加强（\${stats.critical.length} 个知识点）
+                                </div>
+                                <div style="color: #666; line-height: 1.8;">
+                                    \${criticalList}
+                                </div>
+                            </div>
+                        \` : ''}
+                        \${(stats.moderate?.length || 0) > 0 ? \`
+                            <div>
+                                <div style="font-weight: 600; color: #f57f17; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                                    <span style="font-size: 18px;">🟡</span> 需要巩固（\${stats.moderate.length} 个知识点）
+                                </div>
+                                <div style="color: #666; line-height: 1.8;">
+                                    \${moderateList}
+                                </div>
+                            </div>
+                        \` : ''}
+                    </div>
+
+                    <!-- AI 错误原因分析 -->
+                    \${analysis.errorReasons && analysis.errorReasons.length > 0 ? \`
+                    <div style="background: linear-gradient(135deg, #e3f2fd 0%, #e1f5fe 100%); padding: 20px; border-radius: 12px; margin-bottom: 20px; border-left: 4px solid #2196f3;">
+                        <h3 style="color: #1565c0; font-size: 17px; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 20px;">🤖</span> AI 错误原因分析
+                        </h3>
+                        <ul style="margin: 0; padding-left: 20px; color: #666; line-height: 1.8;">
+                            \${analysis.errorReasons.map(reason => \`<li style="margin-bottom: 8px;">\${reason}</li>\`).join('')}
+                        </ul>
+                        <div style="margin-top: 15px; padding: 12px; background: white; border-radius: 8px; font-size: 14px; color: #555;">
+                            <strong>📖 学习范围建议：</strong> <span style="color: #1565c0; font-weight: 600;">\${analysis.learningScope}</span><br>
+                            <span style="font-size: 13px; color: #777;">\${analysis.scopeReason}</span>
+                        </div>
+                    </div>
+                    \` : ''}
+
+                    <!-- 学习建议 -->
+                    \${suggestions && suggestions.length > 0 ? \`
+                    <div style="background: linear-gradient(135deg, #f3e5f5 0%, #fce4ec 100%); padding: 20px; border-radius: 12px; margin-bottom: 20px; border-left: 4px solid #9c27b0;">
+                        <h3 style="color: #6a1b9a; font-size: 17px; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 20px;">💡</span> 学习建议
+                        </h3>
+                        <ol style="margin: 0; padding-left: 20px; color: #666; line-height: 1.9;">
+                            \${suggestions.map(suggestion => \`<li style="margin-bottom: 10px;">\${suggestion}</li>\`).join('')}
+                        </ol>
+                    </div>
+                    \` : ''}
+
+                    <!-- Deep Learning 提示词 -->
+                    <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                        <p style="color: #666; margin: 0; line-height: 1.7; font-size: 15px;">
+                            <strong style="color: #333;">📚 下一步操作：</strong><br>
+                            AI 已为你生成个性化学习提示词。复制后在 Claude Code 中粘贴，即可自动搜集针对性学习资料。
+                        </p>
+                    </div>
+
+                    <div style="position: relative; margin-bottom: 25px;">
+                        <textarea id="learning-prompt" readonly style="
+                            width: 100%;
+                            height: 320px;
+                            padding: 18px;
+                            border: 2px solid #e0e0e0;
+                            border-radius: 10px;
+                            font-family: 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
+                            font-size: 13px;
+                            line-height: 1.7;
+                            resize: vertical;
+                            color: #333;
+                            background: #f8f9fa;
+                        ">\${prompt}</textarea>
+
+                        <button onclick="copyPrompt(event)" style="
+                            position: absolute;
+                            top: 12px;
+                            right: 12px;
+                            padding: 10px 18px;
+                            background: linear-gradient(135deg, #667eea, #764ba2);
+                            color: white;
+                            border: none;
+                            border-radius: 8px;
+                            cursor: pointer;
+                            font-size: 14px;
+                            font-weight: 600;
+                            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+                            transition: all 0.3s ease;
+                        " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(102, 126, 234, 0.4)';" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(102, 126, 234, 0.3)';">
+                            📋 复制
+                        </button>
+                    </div>
+
+                    <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                        <button onclick="closeModal()" style="
+                            padding: 13px 28px;
+                            background: #6c757d;
+                            color: white;
+                            border: none;
+                            border-radius: 10px;
+                            cursor: pointer;
+                            font-size: 16px;
+                            font-weight: 600;
+                            transition: all 0.3s ease;
+                        " onmouseover="this.style.background='#5a6268';" onmouseout="this.style.background='#6c757d';">
+                            关闭
+                        </button>
+                        <button onclick="copyAndClose()" style="
+                            padding: 13px 28px;
+                            background: linear-gradient(135deg, #43e97b, #38f9d7);
+                            color: white;
+                            border: none;
+                            border-radius: 10px;
+                            cursor: pointer;
+                            font-size: 16px;
+                            font-weight: 600;
+                            box-shadow: 0 2px 8px rgba(67, 233, 123, 0.3);
+                            transition: all 0.3s ease;
+                        " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(67, 233, 123, 0.4)';" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(67, 233, 123, 0.3)';">
+                            复制并关闭 ✓
+                        </button>
+                    </div>
+                </div>
+            \`;
+
+            // 添加动画样式
+            const style = document.createElement('style');
+            style.textContent = \`
+                @keyframes fadeIn {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+                @keyframes slideUp {
+                    from { transform: translateY(30px); opacity: 0; }
+                    to { transform: translateY(0); opacity: 1; }
+                }
+            \`;
+            document.head.appendChild(style);
+
+            document.body.appendChild(modal);
+
+            // 添加全局函数
+            window.closeModal = function() {
+                const modal = document.getElementById('learning-plan-modal');
+                if (modal) {
+                    modal.style.animation = 'fadeOut 0.3s ease';
+                    setTimeout(() => {
+                        document.body.removeChild(modal);
+                    }, 300);
+                }
+            };
+
+            window.copyPrompt = function(event) {
+                const textarea = document.getElementById('learning-prompt');
+                textarea.select();
+                textarea.setSelectionRange(0, 99999); // 移动端兼容
+
+                try {
+                    document.execCommand('copy');
+
+                    // 显示复制成功提示
+                    const btn = event.target;
+                    const originalText = btn.textContent;
+                    btn.textContent = '✓ 已复制';
+                    btn.style.background = 'linear-gradient(135deg, #43e97b, #38f9d7)';
+
+                    setTimeout(() => {
+                        btn.textContent = originalText;
+                        btn.style.background = 'linear-gradient(135deg, #667eea, #764ba2)';
+                    }, 2000);
+                } catch (err) {
+                    alert('复制失败，请手动复制');
+                }
+            };
+
+            window.copyAndClose = function() {
+                const textarea = document.getElementById('learning-prompt');
+                textarea.select();
+                textarea.setSelectionRange(0, 99999);
+
+                try {
+                    document.execCommand('copy');
+                    closeModal();
+
+                    setTimeout(() => {
+                        alert('✓ 提示词已复制到剪贴板！\\n\\n请在 Claude Code 中粘贴，即可自动生成个性化学习计划。');
+                    }, 400);
+                } catch (err) {
+                    alert('复制失败，请手动复制');
+                }
+            };
+
+            // 点击背景关闭
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    closeModal();
+                }
+            });
+
+            // ESC键关闭
+            const escHandler = (e) => {
+                if (e.key === 'Escape') {
+                    closeModal();
+                    document.removeEventListener('keydown', escHandler);
+                }
+            };
+            document.addEventListener('keydown', escHandler);
         }
     </script>
 </body>

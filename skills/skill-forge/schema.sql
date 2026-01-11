@@ -26,6 +26,10 @@ CREATE TABLE IF NOT EXISTS questions (
     score INTEGER NOT NULL,                  -- 分值
     knowledge_points TEXT,                   -- 知识点（JSON数组）
     explanation TEXT,                        -- 题目解析
+    source_type TEXT DEFAULT 'ai_generated', -- 题目来源类型：ai_generated/imported/manual
+    source_url TEXT,                         -- 来源URL（如果适用）
+    source_name TEXT,                        -- 来源名称（如果适用）
+    content_hash TEXT,                       -- 内容哈希（用于去重）
     FOREIGN KEY (quiz_id) REFERENCES quizzes(quiz_id)
 );
 

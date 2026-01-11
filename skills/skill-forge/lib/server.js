@@ -6,9 +6,36 @@ const { spawn } = require('child_process');
 const { db, DATA_DIR, QUIZZES_DIR, HISTORY_DIR } = require('./database');
 const { generateResultHTML } = require('./result-template');
 const { generateHistoryHTML } = require('./history-template');
+const os = require('os');
 
-const PORT = 3457;
-const AI_TIMEOUT = 120000; // 120秒超时
+// 读取配置文件
+const CONFIG_PATH = path.join(os.homedir(), '.skill-forge', 'config.json');
+let config = {
+    ai: {
+        model: 'mcs-1',
+        timeout: 120000,
+        cliCommand: 'claude'
+    },
+    server: {
+        port: 3457
+    }
+};
+
+try {
+    if (fs.existsSync(CONFIG_PATH)) {
+        const configContent = fs.readFileSync(CONFIG_PATH, 'utf8');
+        config = JSON.parse(configContent);
+        console.log(`✓ 配置已加载: ${CONFIG_PATH}`);
+        console.log(`✓ AI 模型: ${config.ai.model}`);
+    }
+} catch (err) {
+    console.warn('⚠️ 配置文件读取失败，使用默认配置:', err.message);
+}
+
+const PORT = config.server.port || 3457;
+const AI_TIMEOUT = config.ai.timeout || 120000;
+const AI_MODEL = config.ai.model || 'mcs-1';
+const CLAUDE_CLI = config.ai.cliCommand || 'claude';
 
 const MIME_TYPES = {
     '.html': 'text/html; charset=utf-8',
@@ -292,6 +319,50 @@ const server = http.createServer(async (req, res) => {
             return;
         }
 
+        // AI生成学习计划
+        if (pathname === '/api/generate-ai-learning-plan' && req.method === 'POST') {
+            let body = '';
+            req.on('data', chunk => {
+                body += chunk.toString();
+            });
+
+            req.on('end', async () => {
+                try {
+                    const data = JSON.parse(body);
+                    const { submission_id } = data;
+
+                    if (!submission_id) {
+                        res.writeHead(400, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ error: 'Missing submission_id' }));
+                        return;
+                    }
+
+                    console.log(`正在生成学习计划: ${submission_id}`);
+
+                    // 获取测验数据
+                    const submission = await db.getSubmission(submission_id);
+                    const quiz = await db.getQuiz(submission.quiz_id);
+                    const questions = await db.getQuestions(submission.quiz_id);
+                    const answers = await db.getAnswers(submission_id);
+
+                    // 调用AI生成学习计划
+                    const learningPlan = await generateAILearningPlan(quiz, submission, questions, answers);
+
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({
+                        success: true,
+                        learningPlan
+                    }));
+
+                } catch (err) {
+                    console.error('生成学习计划失败:', err);
+                    res.writeHead(500, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: err.message }));
+                }
+            });
+            return;
+        }
+
         // 404
         res.writeHead(404);
         res.end('Not found');
@@ -344,9 +415,9 @@ ${question.options ? `选项：\n${JSON.parse(question.options).map((opt, i) => 
 
         console.log('调用Claude CLI生成AI回答...');
 
-        const claudeProcess = spawn('claude', [
+        const claudeProcess = spawn(CLAUDE_CLI, [
             '--print',
-            '--model', 'claude-sonnet-4-20250514'
+            '--model', AI_MODEL
         ], {
             stdio: ['pipe', 'pipe', 'pipe'],
             shell: true
@@ -498,9 +569,9 @@ async function gradeWithAI(question, userAnswer) {
 }
 `;
 
-        const claudeProcess = spawn('claude', [
+        const claudeProcess = spawn(CLAUDE_CLI, [
             '--print',
-            '--model', 'claude-sonnet-4-20250514'
+            '--model', AI_MODEL
         ], {
             stdio: ['pipe', 'pipe', 'pipe'],
             shell: true
@@ -541,6 +612,220 @@ async function gradeWithAI(question, userAnswer) {
                     feedback: 'AI评分解析失败',
                     is_correct: false
                 });
+            }
+        });
+
+        claudeProcess.stdin.write(aiPrompt);
+        claudeProcess.stdin.end();
+    });
+}
+
+/**
+ * 使用AI生成个性化学习计划
+ */
+async function generateAILearningPlan(quiz, submission, questions, answers) {
+    return new Promise((resolve, reject) => {
+        // 分析薄弱知识点
+        const knowledgeStats = {};
+        answers.forEach(answer => {
+            const kps = answer.knowledge_points || [];
+            kps.forEach(kp => {
+                if (!knowledgeStats[kp]) {
+                    knowledgeStats[kp] = { correct: 0, total: 0 };
+                }
+                knowledgeStats[kp].total++;
+                if (answer.is_correct) {
+                    knowledgeStats[kp].correct++;
+                }
+            });
+        });
+
+        const critical = [];
+        const moderate = [];
+        for (const [kp, stat] of Object.entries(knowledgeStats)) {
+            const percent = (stat.correct / stat.total * 100);
+            if (percent < 60) {
+                critical.push({ name: kp, percent: percent.toFixed(1), ...stat });
+            } else if (percent < 80) {
+                moderate.push({ name: kp, percent: percent.toFixed(1), ...stat });
+            }
+        }
+
+        // 收集错题详情
+        const wrongAnswers = answers.filter(a => !a.is_correct).slice(0, 5); // 最多分析5道错题
+        const wrongDetails = wrongAnswers.map(answer => {
+            const question = questions.find(q => q.id === answer.question_id);
+            return {
+                question_number: question.question_number,
+                question_type: question.question_type,
+                content: question.content,
+                options: question.options,
+                user_answer: answer.user_answer,
+                correct_answer: question.correct_answer,
+                knowledge_points: question.knowledge_points,
+                ai_feedback: answer.ai_feedback
+            };
+        });
+
+        // 构建AI提示词
+        const percentage = (submission.obtained_score / submission.total_score * 100).toFixed(1);
+        const aiPrompt = `你是一位专业的学习规划师。请分析以下测验结果，生成个性化的学习计划。
+
+## 测验信息
+- 主题：${quiz.topic}${quiz.topic_detail ? ' - ' + quiz.topic_detail : ''}
+- 难度：${quiz.difficulty === 'beginner' ? '初级' : quiz.difficulty === 'intermediate' ? '中级' : '高级'}
+- 得分：${submission.obtained_score}/${submission.total_score}（${percentage}%）
+- 题目总数：${questions.length}
+- 正确题数：${answers.filter(a => a.is_correct).length}
+
+## 薄弱知识点统计
+${critical.length > 0 ? `
+### 急需加强（掌握率 < 60%）
+${critical.map(kp => `- ${kp.name}：${kp.percent}%（${kp.correct}/${kp.total}题正确）`).join('\n')}
+` : ''}
+${moderate.length > 0 ? `
+### 需要巩固（掌握率 60-80%）
+${moderate.map(kp => `- ${kp.name}：${kp.percent}%（${kp.correct}/${kp.total}题正确）`).join('\n')}
+` : ''}
+
+## 错题详情分析
+${wrongDetails.map((wd, idx) => `
+### 错题 ${idx + 1}：${wd.question_type === 'choice' ? '选择题' : wd.question_type === 'code' ? '代码题' : '问答题'}
+**题目**：${wd.content}
+${wd.options ? `**选项**：${JSON.stringify(wd.options)}` : ''}
+**你的答案**：${wd.user_answer || '未作答'}
+**正确答案**：${wd.correct_answer}
+**知识点**：${wd.knowledge_points.join('、')}
+${wd.ai_feedback ? `**AI反馈**：${wd.ai_feedback}` : ''}
+`).join('\n')}
+
+## 请你完成以下任务
+
+### 1. 错误原因分析
+分析用户在这些错题上犯错的根本原因（不是表面原因）。例如：
+- 是概念理解不清？
+- 是知识点混淆？
+- 是粗心大意？
+- 是缺乏实践经验？
+
+### 2. 学习范围判断
+基于测验结果，判断用户应该选择的学习范围：
+- 入门级：需要系统性学习基础
+- 进阶级：有一定基础但需要深入
+- 专家级：基础扎实，冲刺高级内容
+
+### 3. 生成 Deep Learning Skill 提示词
+生成一个完整的、可以直接使用的提示词，用于调用 deep-learning skill。
+
+**提示词格式要求**：
+\`\`\`
+帮我搜集关于「{主题}」的学习资料
+
+📊 我刚完成了一次测验，以下是我的薄弱知识点分析：
+
+{薄弱点列表}
+
+📋 AI 分析：
+{错误原因分析}
+
+📚 请为我定制学习资料：
+1. 学习主题：{主题}
+2. 学习范围：{范围}（{原因}）
+3. 重点关注：{知识点列表}
+4. 学习偏好：
+   • 语言：中英文都可以，优先权威资源
+   • 需要实战项目和代码示例
+   • 重点关注：{资源类型建议}
+   • 生成结构化的学习路径和 HTML 学习指南
+\`\`\`
+
+### 4. 学习建议
+给出3-5条具体的学习建议，包括：
+- 应该先学什么，后学什么
+- 推荐的学习方法
+- 避免的常见误区
+
+## 输出格式（JSON）
+请严格按照以下JSON格式输出（不要包含任何其他文字）：
+
+\`\`\`json
+{
+    "analysis": {
+        "errorReasons": ["原因1", "原因2", "原因3"],
+        "learningScope": "入门级/进阶级/专家级",
+        "scopeReason": "为什么选择这个范围的详细解释"
+    },
+    "deepLearningPrompt": "完整的提示词文本",
+    "suggestions": [
+        "建议1",
+        "建议2",
+        "建议3"
+    ],
+    "focusAreas": ["重点领域1", "重点领域2"],
+    "resourceTypes": ["books", "tutorials", "papers", "projects"]
+}
+\`\`\`
+`;
+
+        console.log('调用Claude CLI生成学习计划...');
+
+        const claudeProcess = spawn(CLAUDE_CLI, [
+            '--print',
+            '--model', AI_MODEL
+        ], {
+            stdio: ['pipe', 'pipe', 'pipe'],
+            shell: true
+        });
+
+        let output = '';
+        let errorOutput = '';
+        let timeoutId;
+
+        // 设置超时（60秒）
+        timeoutId = setTimeout(() => {
+            claudeProcess.kill();
+            reject(new Error('AI生成学习计划超时'));
+        }, 60000);
+
+        claudeProcess.stdout.on('data', (data) => {
+            output += data.toString();
+        });
+
+        claudeProcess.stderr.on('data', (data) => {
+            errorOutput += data.toString();
+        });
+
+        claudeProcess.on('close', (code) => {
+            clearTimeout(timeoutId);
+
+            if (code !== 0) {
+                console.error('Claude CLI执行失败:', errorOutput);
+                reject(new Error(`AI生成失败: ${errorOutput}`));
+                return;
+            }
+
+            try {
+                // 提取JSON
+                const jsonMatch = output.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                    const result = JSON.parse(jsonMatch[0]);
+
+                    // 添加统计数据
+                    result.stats = {
+                        critical: critical,
+                        moderate: moderate,
+                        score: percentage,
+                        totalQuestions: questions.length,
+                        correctCount: answers.filter(a => a.is_correct).length
+                    };
+
+                    resolve(result);
+                } else {
+                    reject(new Error('AI输出格式错误：未找到JSON'));
+                }
+            } catch (err) {
+                console.error('解析AI输出失败:', err);
+                reject(new Error('AI输出解析失败'));
             }
         });
 

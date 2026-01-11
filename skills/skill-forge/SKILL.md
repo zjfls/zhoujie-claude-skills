@@ -101,32 +101,123 @@ CREATE INDEX IF NOT EXISTS idx_answers_submission_id ON answers(submission_id);
 CREATE INDEX IF NOT EXISTS idx_ai_interactions_quiz_id ON ai_interactions(quiz_id);
 ```
 
+## ⚙️ 配置系统
+
+### 配置文件（config.json）
+
+**位置**：`~/.skill-forge/config.json`
+
+**首次使用**：
+- 系统首次启动时自动创建默认配置
+- 也可以手动编辑来覆盖默认值
+- 修改后需重启服务器生效
+
+**完整配置项说明**：
+
+```json
+{
+    "version": "1.0.0",
+    "ai": {
+        "model": "mcs-1",              // AI模型名称（必须是有效的Claude模型）
+        "timeout": 120000,             // AI请求超时时间（毫秒）
+        "cliCommand": "claude",        // Claude CLI命令名称
+        "temperature": 0.7             // AI生成温度（0-1，越高越随机）
+    },
+    "server": {
+        "port": 3457,                  // HTTP服务器端口
+        "dataDir": "~/.skill-forge"    // 数据存储目录
+    },
+    "quiz": {
+        "defaultDifficulty": "intermediate",    // 默认难度：beginner/intermediate/advanced
+        "defaultQuestionCount": 10,             // 默认题目数量
+        "autoSaveInterval": 30000,              // 自动保存间隔（毫秒）
+        "passThreshold": 60                     // 及格分数线（百分比，0-100）
+    },
+    "deduplication": {
+        "enabled": true,               // 是否启用题目去重功能
+        "policy": "avoid",             // 去重策略：avoid（完全避免）/allow_few（允许少量）/unlimited（不限制）
+        "similarityThreshold": 0.7,    // 相似度判定阈值（0-1，越高要求越严格）
+        "lookbackDays": 30             // 去重检查的历史天数
+    }
+}
+```
+
+**常用配置修改示例**：
+
+```bash
+# 修改AI模型
+vi ~/.skill-forge/config.json
+# 修改 "model": "mcs-1" 为其他有效模型
+
+# 修改端口号（如果3457被占用）
+# 修改 "port": 3457 为其他端口
+
+# 调整及格线
+# 修改 "passThreshold": 60 为其他值（如70）
+
+# 调整去重策略
+# 修改 "policy": "avoid" 为 "allow_few"（允许少量重复题）
+```
+
 ## 📋 数据操作流程（必须严格遵守！）
 
 ### 1️⃣ 首次使用初始化流程
 
-**触发条件**：任何操作开始前
+**触发条件**：任何操作开始前，系统自动检查并初始化
 
+**自动初始化步骤**（由 `database.js` 的 `initDatabase()` 方法完成）：
+
+1. **检查并创建数据目录**：
+   ```javascript
+   if (!fs.existsSync('~/.skill-forge/')) {
+       fs.mkdirSync('~/.skill-forge/', { recursive: true });
+       console.log('✓ 创建数据目录: ~/.skill-forge');
+   }
+   ```
+
+2. **创建子目录结构**：
+   ```
+   ~/.skill-forge/
+   ├── quizzes/     # 自动创建（试卷HTML文件）
+   └── history/     # 自动创建（历史记录备份）
+   ```
+
+3. **创建默认配置文件**（如果不存在）：
+   ```javascript
+   // 自动生成 ~/.skill-forge/config.json
+   // 包含所有默认配置项
+   console.log('✓ 配置文件已创建: ~/.skill-forge/config.json');
+   ```
+
+4. **初始化数据库**：
+   ```javascript
+   // 连接/创建 ~/.skill-forge/skill-forge.db
+   // 执行 schema.sql 创建所有表和索引
+   console.log('✓ 数据库已连接: ~/.skill-forge/skill-forge.db');
+   console.log('✓ 数据库表已初始化');
+   ```
+
+5. **验证初始化成功**：
+   控制台输出完整的初始化日志：
+   ```
+   ✓ 创建数据目录: ~/.skill-forge
+   ✓ 配置文件已创建: ~/.skill-forge/config.json
+   ✓ 数据库已连接: ~/.skill-forge/skill-forge.db
+   ✓ 数据库表已初始化
+   ```
+
+**重要特性**：
+- **完全自动化**：无需任何手动操作
+- **幂等性**：可以多次调用，不会重复创建或报错
+- **容错性**：已存在的目录/文件不会被覆盖
+- **即用性**：首次使用时自动完成所有初始化
+
+**用户无需做任何事情**，直接使用即可：
 ```bash
-# 步骤1：检查数据目录是否存在
-if [ ! -d ~/.skill-forge ]; then
-    echo "首次使用，正在初始化Skill Forge..."
-fi
-
-# 步骤2：创建目录结构
-mkdir -p ~/.skill-forge/quizzes
-mkdir -p ~/.skill-forge/history
-
-# 步骤3：初始化数据库
-# 使用 lib/database.js 的 initDatabase() 方法
-# 或直接执行 schema.sql
-
-# 步骤4：验证初始化成功
-# 检查 ~/.skill-forge/skill-forge.db 是否存在
-# 检查表是否创建成功
+# 第一次使用
+/skill-forge
+# → 系统自动初始化所有必需的目录、配置和数据库
 ```
-
-**重要**：每次操作前必须确保数据库已初始化。
 
 ### 2️⃣ 创建试卷流程
 
@@ -474,6 +565,311 @@ mkdir -p ~/.skill-forge/history
    ```bash
    open "http://localhost:3457/history/report_<timestamp>.html"
    ```
+
+### 6️⃣ AI学习计划生成流程
+
+**功能**：测验完成后，基于薄弱知识点生成个性化学习计划，并对接 deep-learning skill 自动搜集学习资料
+
+**学习闭环架构**：
+```
+测验 → 发现薄弱点 → AI生成学习计划 → 搜集资料 → 学习提升 → 再次测验
+```
+
+**完整流程**：
+
+```
+用户点击"生成学习计划" → 分析薄弱点 → AI深度分析 → 生成定制提示词 → 用户复制提示词 → 调用deep-learning skill
+```
+
+**详细步骤**：
+
+1. **薄弱知识点自动分析**（前端 JavaScript）：
+   ```javascript
+   // 根据测验结果计算知识点掌握率
+   const knowledgeStats = {};
+   answers.forEach(answer => {
+       answer.knowledge_points.forEach(kp => {
+           knowledgeStats[kp] = {
+               correct: correctCount,
+               total: totalCount,
+               percent: (correctCount / totalCount * 100)
+           };
+       });
+   });
+
+   // 分级分类
+   const critical = [];   // 掌握率 < 60% - 急需加强
+   const moderate = [];   // 掌握率 60-80% - 需要巩固
+   const good = [];       // 掌握率 >= 80% - 良好
+   ```
+
+2. **发送AI分析请求**：
+   ```http
+   POST /api/generate-ai-learning-plan
+   Content-Type: application/json
+
+   {
+       "submission_id": "2026-01-11T14-30-45_javascript-basics_2026-01-11T15-45-12"
+   }
+   ```
+
+3. **服务器端AI深度分析**（`server.js` 的 `generateAILearningPlan()`）：
+
+   **收集数据**：
+   ```javascript
+   // 获取完整测验数据
+   const submission = await db.getSubmission(submission_id);
+   const quiz = await db.getQuiz(submission.quiz_id);
+   const questions = await db.getQuestions(submission.quiz_id);
+   const answers = await db.getAnswers(submission_id);
+
+   // 统计薄弱知识点
+   const knowledgeStats = { /* ... */ };
+
+   // 收集错题详情（最多5道）
+   const wrongAnswers = answers.filter(a => !a.is_correct).slice(0, 5);
+   const wrongDetails = wrongAnswers.map(answer => ({
+       question_number, question_type, content, options,
+       user_answer, correct_answer, knowledge_points, ai_feedback
+   }));
+   ```
+
+   **构建AI提示词**（发送给Claude）：
+   ```javascript
+   const aiPrompt = `你是一位专业的学习规划师。请分析以下测验结果，生成个性化的学习计划。
+
+## 测验信息
+- 主题：${quiz.topic}
+- 难度：${quiz.difficulty}
+- 得分：${obtained_score}/${total_score}（${percentage}%）
+
+## 薄弱知识点统计
+### 急需加强（掌握率 < 60%）
+${critical.map(kp => `- ${kp.name}：${kp.percent}%（${kp.correct}/${kp.total}题正确）`).join('\n')}
+
+### 需要巩固（掌握率 60-80%）
+${moderate.map(kp => `- ${kp.name}：${kp.percent}%（${kp.correct}/${kp.total}题正确）`).join('\n')}
+
+## 错题详情分析
+${wrongDetails.map(wd => `
+### 错题：${wd.question_type}
+**题目**：${wd.content}
+**你的答案**：${wd.user_answer}
+**正确答案**：${wd.correct_answer}
+**知识点**：${wd.knowledge_points.join('、')}
+**AI反馈**：${wd.ai_feedback}
+`).join('\n')}
+
+## 请你完成以下任务
+
+### 1. 错误原因分析
+分析用户在这些错题上犯错的根本原因（不是表面原因）。例如：
+- 是概念理解不清？
+- 是知识点混淆？
+- 是粗心大意？
+- 是缺乏实践经验？
+
+### 2. 学习范围判断
+基于测验结果，判断用户应该选择的学习范围：
+- 入门级：需要系统性学习基础
+- 进阶级：有一定基础但需要深入
+- 专家级：基础扎实，冲刺高级内容
+
+### 3. 生成 Deep Learning Skill 提示词
+生成一个完整的、可以直接使用的提示词，用于调用 deep-learning skill。
+
+**提示词格式要求**：
+\`\`\`
+帮我搜集关于「{主题}」的学习资料
+
+📊 我刚完成了一次测验，以下是我的薄弱知识点分析：
+
+{薄弱点列表}
+
+📋 AI 分析：
+{错误原因分析}
+
+📚 请为我定制学习资料：
+1. 学习主题：{主题}
+2. 学习范围：{范围}（{原因}）
+3. 重点关注：{知识点列表}
+4. 学习偏好：
+   • 语言：中英文都可以，优先权威资源
+   • 需要实战项目和代码示例
+   • 重点关注：{资源类型建议}
+   • 生成结构化的学习路径和 HTML 学习指南
+\`\`\`
+
+### 4. 学习建议
+给出3-5条具体的学习建议，包括：
+- 应该先学什么，后学什么
+- 推荐的学习方法
+- 避免的常见误区
+
+## 输出格式（JSON）
+请严格按照以下JSON格式输出（不要包含任何其他文字）：
+
+\`\`\`json
+{
+    "analysis": {
+        "errorReasons": ["原因1", "原因2", "原因3"],
+        "learningScope": "入门级/进阶级/专家级",
+        "scopeReason": "为什么选择这个范围的详细解释"
+    },
+    "deepLearningPrompt": "完整的提示词文本",
+    "suggestions": [
+        "建议1",
+        "建议2",
+        "建议3"
+    ],
+    "focusAreas": ["重点领域1", "重点领域2"],
+    "resourceTypes": ["books", "tutorials", "papers", "projects"]
+}
+\`\`\`
+   `;
+
+   // 调用 Claude CLI
+   const claudeProcess = spawn(CLAUDE_CLI, [
+       '--print',
+       '--model', AI_MODEL
+   ], {
+       stdio: ['pipe', 'pipe', 'pipe'],
+       shell: true
+   });
+
+   // 60秒超时
+   setTimeout(() => claudeProcess.kill(), 60000);
+
+   // 解析JSON响应
+   const result = JSON.parse(output);
+   return result;
+   ```
+
+4. **前端显示学习计划**（模态框）：
+
+   **加载动画**：
+   ```javascript
+   showLoadingModal('🤖 AI 正在分析你的测验结果\n分析错题原因，生成个性化学习计划...\n这可能需要 30-60 秒');
+   ```
+
+   **模态框内容**：
+   ```html
+   <div class="learning-plan-modal">
+       <h2>📚 个性化学习计划</h2>
+
+       <!-- 薄弱知识点分析 -->
+       <section class="weak-points">
+           <h3>📊 薄弱知识点分析</h3>
+           <div class="critical">
+               🔴 急需加强（3个知识点）
+               - 闭包 (40%)
+               - Promise (50%)
+               - 原型链 (55%)
+           </div>
+           <div class="moderate">
+               🟡 需要巩固（2个知识点）
+               - 异步编程 (70%)
+               - this指向 (75%)
+           </div>
+       </section>
+
+       <!-- AI 错误原因分析 -->
+       <section class="ai-analysis">
+           <h3>🤖 AI 错误原因分析</h3>
+           <ul>
+               <li>对闭包的作用域链理解不够深入</li>
+               <li>Promise的错误处理机制掌握不足</li>
+               <li>原型继承与原型链的区别混淆</li>
+           </ul>
+           <div class="learning-scope">
+               <strong>📖 学习范围建议：</strong> 进阶级
+               <p>你已经具备JavaScript基础，但需要深入理解高级特性...</p>
+           </div>
+       </section>
+
+       <!-- 学习建议 -->
+       <section class="suggestions">
+           <h3>💡 学习建议</h3>
+           <ol>
+               <li>先系统学习作用域和闭包原理，再进入异步编程</li>
+               <li>通过实际项目练习Promise和async/await</li>
+               <li>用可视化工具理解原型链机制</li>
+           </ol>
+       </section>
+
+       <!-- Deep Learning 提示词 -->
+       <section class="prompt-section">
+           <p><strong>📚 下一步操作：</strong>
+           AI已为你生成个性化学习提示词。复制后在Claude Code中粘贴，即可自动搜集针对性学习资料。</p>
+
+           <textarea id="learning-prompt" readonly>
+帮我搜集关于「JavaScript高级特性」的学习资料
+
+📊 我刚完成了一次测验，以下是我的薄弱知识点分析：
+🔴 急需加强：闭包(40%)、Promise(50%)、原型链(55%)
+🟡 需要巩固：异步编程(70%)、this指向(75%)
+
+📋 AI 分析：
+- 对闭包的作用域链理解不够深入
+- Promise的错误处理机制掌握不足
+- 原型继承与原型链的区别混淆
+
+📚 请为我定制学习资料：
+1. 学习主题：JavaScript高级特性（闭包、Promise、原型链）
+2. 学习范围：进阶级（有基础但需深入）
+3. 重点关注：闭包、Promise、原型链、异步编程
+4. 学习偏好：
+   • 语言：中英文都可以，优先权威资源
+   • 需要实战项目和代码示例
+   • 重点关注：在线教程、实战项目、可视化工具
+   • 生成结构化的学习路径和 HTML 学习指南
+           </textarea>
+
+           <button onclick="copyPrompt()">📋 复制</button>
+       </section>
+
+       <footer>
+           <button onclick="closeModal()">关闭</button>
+           <button onclick="copyAndClose()">复制并关闭 ✓</button>
+       </footer>
+   </div>
+   ```
+
+5. **用户操作流程**：
+   ```
+   1. 用户点击"复制"按钮
+   2. 提示词自动复制到剪贴板
+   3. 用户在Claude Code中粘贴
+   4. deep-learning skill自动触发
+   5. 系统搜集针对性学习资料：
+      - 搜索权威书籍（Amazon、O'Reilly）
+      - 查找优质教程（MDN、JavaScript.info）
+      - 收集经典博客（2ality、Axel Rauschmayer）
+      - 下载相关论文（如有）
+      - 生成HTML学习指南
+   6. 用户开始学习
+   7. 学习完成后，再次创建测验验证提升
+   ```
+
+**关键技术特性**：
+
+- **异步处理**：AI分析需要30-60秒，显示加载动画避免用户焦虑
+- **JSON格式化**：AI输出严格的JSON，便于前端解析展示
+- **提示词模板**：生成的提示词可直接用于 deep-learning skill
+- **学习闭环**：测验 → 分析 → 学习 → 再测验，形成完整学习循环
+
+**数据库保存**（可选扩展）：
+```sql
+-- 可以添加学习计划表保存生成的计划
+CREATE TABLE IF NOT EXISTS learning_plans (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    submission_id TEXT NOT NULL,
+    analysis TEXT,              -- JSON格式的分析结果
+    prompt TEXT,                -- 生成的提示词
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (submission_id) REFERENCES submissions(submission_id)
+);
+```
 
 ## 🎯 工作流程总结
 

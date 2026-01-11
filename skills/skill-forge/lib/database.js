@@ -33,6 +33,38 @@ class Database {
             fs.mkdirSync(HISTORY_DIR, { recursive: true });
         }
 
+        // 创建默认配置文件（如果不存在）
+        const configPath = path.join(DATA_DIR, 'config.json');
+        if (!fs.existsSync(configPath)) {
+            const defaultConfig = {
+                version: "1.0.0",
+                ai: {
+                    model: "mcs-1",
+                    timeout: 120000,
+                    cliCommand: "claude",
+                    temperature: 0.7
+                },
+                server: {
+                    port: 3457,
+                    dataDir: "~/.skill-forge"
+                },
+                quiz: {
+                    defaultDifficulty: "intermediate",
+                    defaultQuestionCount: 10,
+                    autoSaveInterval: 30000,
+                    passThreshold: 60
+                },
+                deduplication: {
+                    enabled: true,
+                    policy: "avoid",
+                    similarityThreshold: 0.7,
+                    lookbackDays: 30
+                }
+            };
+            fs.writeFileSync(configPath, JSON.stringify(defaultConfig, null, 4), 'utf8');
+            console.log(`✓ 配置文件已创建: ${configPath}`);
+        }
+
         // 打开数据库连接
         return new Promise((resolve, reject) => {
             this.db = new sqlite3.Database(DB_PATH, (err) => {
