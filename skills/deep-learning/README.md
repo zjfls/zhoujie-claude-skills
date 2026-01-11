@@ -17,11 +17,11 @@
 
 ```
 deep-learning/
-├── skill.json           # Skill 配置文件
-├── index.md             # 主要工作流程定义
-├── resources-guide.md   # 权威资源渠道指南
-├── paper-downloader.py  # 论文下载辅助脚本
-└── README.md            # 本说明文件
+├── SKILL.md                      # 主要工作流程定义
+├── resources-guide.md            # 权威资源渠道指南
+├── paper-downloader.py           # 论文下载辅助脚本
+├── learning-guide-template.html  # HTML 学习指南模板
+└── README.md                     # 本说明文件
 ```
 
 ## 使用方法

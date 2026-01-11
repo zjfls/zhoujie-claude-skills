@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{TOPIC}} 学习指南</title>
+    <style>
+        /* === 基础样式 === */
+        :root {
+            --bg-primary: #0f0f1a;
+            --bg-secondary: #1a1a2e;
+            --bg-card: #16213e;
+            --text-primary: #eaeaea;
+            --text-secondary: #a0a0b0;
+            --accent-1: #e94560;
+            --accent-2: #0f3460;
+            --accent-3: #533483;
+            --gradient-1: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --gradient-2: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            --gradient-3: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            --gradient-4: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            --shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            --radius: 16px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        a {
+            color: #6b9fff;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        a:hover {
+            color: #a0c4ff;
+        }
+
+        /* === 顶部导航 === */
+        header {
+            background: var(--bg-secondary);
+            padding: 2rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+
+        header h1 {
+            font-size: 2rem;
+            background: var(--gradient-1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 1rem;
+        }
+
+        .progress-container {
+            margin: 1rem 0;
+        }
+
+        .progress-bar {
+            background: var(--bg-card);
+            border-radius: 10px;
+            height: 12px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--gradient-3);
+            width: 0%;
+            transition: width 0.5s ease;
+            border-radius: 10px;
+        }
+
+        .progress-text {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-top: 0.5rem;
+        }
+
+        nav {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+
+        nav a {
+            padding: 0.5rem 1rem;
+            background: var(--bg-card);
+            border-radius: 8px;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        nav a:hover {
+            background: var(--accent-2);
+            transform: translateY(-2px);
+        }
+
+        /* === 主要内容区 === */
+        main {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        section {
+            margin-bottom: 3rem;
+        }
+
+        section h2 {
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--accent-2);
+        }
+
+        /* === 概览卡片 === */
+        #overview {
+            background: var(--bg-secondary);
+            padding: 2rem;
+            border-radius: var(--radius);
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .overview-item {
+            text-align: center;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border-radius: 12px;
+        }
+
+        .overview-item .number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            background: var(--gradient-1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .overview-item .label {
+            color: var(--text-secondary);
+            margin-top: 0.5rem;
+        }
+
+        /* === 学习路径 === */
+        .stage {
+            background: var(--bg-secondary);
+            border-radius: var(--radius);
+            padding: 2rem;
+            margin-bottom: 2rem;
+            border-left: 4px solid;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .stage:hover {
+            transform: translateX(8px);
+            box-shadow: var(--shadow);
+        }
+
+        .stage:nth-child(1) { border-color: #667eea; }
+        .stage:nth-child(2) { border-color: #f5576c; }
+        .stage:nth-child(3) { border-color: #4facfe; }
+        .stage:nth-child(4) { border-color: #43e97b; }
+
+        .stage-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .stage-number {
+            background: var(--gradient-1);
+            color: white;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: bold;
+        }
+
+        .stage:nth-child(1) .stage-number { background: var(--gradient-1); }
+        .stage:nth-child(2) .stage-number { background: var(--gradient-2); }
+        .stage:nth-child(3) .stage-number { background: var(--gradient-3); }
+        .stage:nth-child(4) .stage-number { background: var(--gradient-4); }
+
+        .stage-header h3 {
+            flex: 1;
+            font-size: 1.3rem;
+        }
+
+        .stage-duration {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            background: var(--bg-card);
+            padding: 0.3rem 0.8rem;
+            border-radius: 8px;
+        }
+
+        .stage-content > div {
+            margin-bottom: 1.5rem;
+        }
+
+        .stage-content h4 {
+            font-size: 1rem;
+            margin-bottom: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .stage-content ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .stage-content li {
+            padding: 0.5rem 0;
+            padding-left: 1.5rem;
+            position: relative;
+        }
+
+        .stage-content li::before {
+            content: "→";
+            position: absolute;
+            left: 0;
+            color: var(--accent-1);
+        }
+
+        .required {
+            background: rgba(233, 69, 96, 0.1);
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+        }
+
+        .optional {
+            background: rgba(79, 172, 254, 0.1);
+            padding: 1rem;
+            border-radius: 8px;
+        }
+
+        .checkpoint {
+            background: rgba(67, 233, 123, 0.1);
+            padding: 1rem;
+            border-radius: 8px;
+            border-left: 3px solid #43e97b;
+        }
+
+        /* === 资源卡片 === */
+        .resource-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .resource-card {
+            background: var(--bg-secondary);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .resource-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow);
+        }
+
+        .resource-card h4 {
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .resource-meta {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            margin-bottom: 1rem;
+        }
+
+        .resource-tags {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            margin-bottom: 1rem;
+        }
+
+        .tag {
+            padding: 0.25rem 0.6rem;
+            background: var(--bg-card);
+            border-radius: 4px;
+            font-size: 0.75rem;
+        }
+
+        .tag.stage-1 { background: rgba(102, 126, 234, 0.3); }
+        .tag.stage-2 { background: rgba(245, 87, 108, 0.3); }
+        .tag.stage-3 { background: rgba(79, 172, 254, 0.3); }
+        .tag.stage-4 { background: rgba(67, 233, 123, 0.3); }
+
+        .tag.beginner { background: rgba(67, 233, 123, 0.3); }
+        .tag.intermediate { background: rgba(245, 165, 36, 0.3); }
+        .tag.advanced { background: rgba(245, 87, 108, 0.3); }
+
+        /* === 论文卡片（特殊样式） === */
+        .paper-card {
+            background: var(--bg-secondary);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: all 0.3s ease;
+        }
+
+        .paper-card:hover {
+            border-color: var(--accent-1);
+            box-shadow: 0 0 20px rgba(233, 69, 96, 0.2);
+        }
+
+        .paper-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+        }
+
+        .paper-title {
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+            line-height: 1.4;
+        }
+
+        .paper-knowledge {
+            background: var(--bg-card);
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+
+        .paper-knowledge h5 {
+            font-size: 0.9rem;
+            color: #f5d742;
+            margin-bottom: 0.5rem;
+        }
+
+        .paper-knowledge ul {
+            list-style: disc;
+            padding-left: 1.2rem;
+        }
+
+        .paper-knowledge li {
+            padding: 0.3rem 0;
+            font-size: 0.9rem;
+        }
+
+        .paper-prereq {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+        }
+
+        .paper-actions {
+            display: flex;
+            gap: 0.8rem;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 0.6rem 1.2rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: var(--gradient-1);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: var(--bg-card);
+            color: var(--text-primary);
+        }
+
+        .btn-secondary:hover {
+            background: var(--accent-2);
+        }
+
+        /* === 知识图谱 === */
+        #knowledge-graph {
+            background: var(--bg-secondary);
+            border-radius: var(--radius);
+            padding: 2rem;
+            min-height: 300px;
+        }
+
+        .graph-placeholder {
+            text-align: center;
+            color: var(--text-secondary);
+            padding: 3rem;
+        }
+
+        /* === 底部 === */
+        footer {
+            background: var(--bg-secondary);
+            padding: 2rem;
+            border-radius: var(--radius);
+            margin-top: 3rem;
+        }
+
+        footer h3 {
+            margin-bottom: 1rem;
+        }
+
+        footer ol {
+            padding-left: 1.5rem;
+        }
+
+        footer li {
+            padding: 0.5rem 0;
+        }
+
+        /* === 响应式 === */
+        @media (max-width: 768px) {
+            header {
+                padding: 1.5rem 1rem;
+            }
+
+            header h1 {
+                font-size: 1.5rem;
+            }
+
+            main {
+                padding: 1rem;
+            }
+
+            .stage {
+                padding: 1.5rem;
+            }
+
+            .stage-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .resource-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* === 进度复选框 === */
+        .progress-checkbox {
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--text-secondary);
+            border-radius: 4px;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .progress-checkbox:checked {
+            background: var(--gradient-4);
+            border-color: #43e97b;
+        }
+
+        .progress-checkbox:checked::after {
+            content: "✓";
+            position: absolute;
+            color: white;
+            font-size: 14px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🎓 {{TOPIC}} 学习指南</h1>
+        <div class="progress-container">
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: {{PROGRESS_PERCENT}}%"></div>
+            </div>
+            <p class="progress-text">学习进度: {{COMPLETED_COUNT}}/{{TOTAL_COUNT}} 项资源</p>
+        </div>
+        <nav>
+            <a href="#stage-1">📘 阶段1: 基础概念</a>
+            <a href="#stage-2">📗 阶段2: 核心技术</a>
+            <a href="#stage-3">📙 阶段3: 进阶应用</a>
+            <a href="#stage-4">📕 阶段4: 前沿研究</a>
+            <a href="#resources">📚 全部资源</a>
+            <a href="#papers">📄 论文列表</a>
+        </nav>
+    </header>
+
+    <main>
+        <!-- 概览 -->
+        <section id="overview">
+            <div class="overview-item">
+                <div class="number">{{BOOK_COUNT}}</div>
+                <div class="label">📚 推荐书籍</div>
+            </div>
+            <div class="overview-item">
+                <div class="number">{{COURSE_COUNT}}</div>
+                <div class="label">🎥 在线课程</div>
+            </div>
+            <div class="overview-item">
+                <div class="number">{{PAPER_COUNT}}</div>
+                <div class="label">📄 论文资源</div>
+            </div>
+            <div class="overview-item">
+                <div class="number">{{TOOL_COUNT}}</div>
+                <div class="label">🔧 框架工具</div>
+            </div>
+        </section>
+
+        <!-- 学习路径 -->
+        <section id="learning-path">
+            <h2>🛤️ 学习路径</h2>
+
+            <!-- 阶段 1 -->
+            <div class="stage" id="stage-1">
+                <div class="stage-header">
+                    <span class="stage-number">阶段 1</span>
+                    <h3>基础概念</h3>
+                    <span class="stage-duration">⏱️ {{STAGE1_DURATION}}</span>
+                </div>
+                <div class="stage-content">
+                    <div class="stage-goal">
+                        <h4>🎯 学习目标</h4>
+                        <p>{{STAGE1_GOAL}}</p>
+                    </div>
+                    <div class="stage-resources">
+                        <h4>📚 学习资源</h4>
+                        <div class="required">
+                            <strong>必修：</strong>
+                            <ul>
+                                {{STAGE1_REQUIRED}}
+                            </ul>
+                        </div>
+                        <div class="optional">
+                            <strong>选修：</strong>
+                            <ul>
+                                {{STAGE1_OPTIONAL}}
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="stage-papers">
+                        <h4>📄 论文阅读</h4>
+                        <ul>
+                            {{STAGE1_PAPERS}}
+                        </ul>
+                    </div>
+                    <div class="checkpoint">
+                        <h4>✅ 阶段检验</h4>
+                        <p>{{STAGE1_CHECKPOINT}}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 阶段 2 -->
+            <div class="stage" id="stage-2">
+                <div class="stage-header">
+                    <span class="stage-number">阶段 2</span>
+                    <h3>核心技术</h3>
+                    <span class="stage-duration">⏱️ {{STAGE2_DURATION}}</span>
+                </div>
+                <div class="stage-content">
+                    <div class="stage-goal">
+                        <h4>🎯 学习目标</h4>
+                        <p>{{STAGE2_GOAL}}</p>
+                    </div>
+                    <div class="stage-resources">
+                        <h4>📚 学习资源</h4>
+                        <div class="required">
+                            <strong>必修：</strong>
+                            <ul>
+                                {{STAGE2_REQUIRED}}
+                            </ul>
+                        </div>
+                        <div class="optional">
+                            <strong>选修：</strong>
+                            <ul>
+                                {{STAGE2_OPTIONAL}}
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="stage-papers">
+                        <h4>📄 论文阅读</h4>
+                        <ul>
+                            {{STAGE2_PAPERS}}
+                        </ul>
+                    </div>
+                    <div class="checkpoint">
+                        <h4>✅ 阶段检验</h4>
+                        <p>{{STAGE2_CHECKPOINT}}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 阶段 3 -->
+            <div class="stage" id="stage-3">
+                <div class="stage-header">
+                    <span class="stage-number">阶段 3</span>
+                    <h3>进阶应用</h3>
+                    <span class="stage-duration">⏱️ {{STAGE3_DURATION}}</span>
+                </div>
+                <div class="stage-content">
+                    <div class="stage-goal">
+                        <h4>🎯 学习目标</h4>
+                        <p>{{STAGE3_GOAL}}</p>
+                    </div>
+                    <div class="stage-resources">
+                        <h4>📚 学习资源</h4>
+                        <div class="required">
+                            <strong>必修：</strong>
+                            <ul>
+                                {{STAGE3_REQUIRED}}
+                            </ul>
+                        </div>
+                        <div class="optional">
+                            <strong>选修：</strong>
+                            <ul>
+                                {{STAGE3_OPTIONAL}}
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="stage-papers">
+                        <h4>📄 论文阅读</h4>
+                        <ul>
+                            {{STAGE3_PAPERS}}
+                        </ul>
+                    </div>
+                    <div class="checkpoint">
+                        <h4>✅ 阶段检验</h4>
+                        <p>{{STAGE3_CHECKPOINT}}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 阶段 4 -->
+            <div class="stage" id="stage-4">
+                <div class="stage-header">
+                    <span class="stage-number">阶段 4</span>
+                    <h3>前沿研究</h3>
+                    <span class="stage-duration">⏱️ {{STAGE4_DURATION}}</span>
+                </div>
+                <div class="stage-content">
+                    <div class="stage-goal">
+                        <h4>🎯 学习目标</h4>
+                        <p>{{STAGE4_GOAL}}</p>
+                    </div>
+                    <div class="stage-resources">
+                        <h4>📚 学习资源</h4>
+                        <div class="required">
+                            <strong>必修：</strong>
+                            <ul>
+                                {{STAGE4_REQUIRED}}
+                            </ul>
+                        </div>
+                        <div class="optional">
+                            <strong>选修：</strong>
+                            <ul>
+                                {{STAGE4_OPTIONAL}}
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="stage-papers">
+                        <h4>📄 论文阅读</h4>
+                        <ul>
+                            {{STAGE4_PAPERS}}
+                        </ul>
+                    </div>
+                    <div class="checkpoint">
+                        <h4>✅ 阶段检验</h4>
+                        <p>{{STAGE4_CHECKPOINT}}</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 论文详情 -->
+        <section id="papers">
+            <h2>📄 论文资源</h2>
+            <div class="resource-grid">
+                {{PAPER_CARDS}}
+            </div>
+        </section>
+
+        <!-- 全部资源 -->
+        <section id="resources">
+            <h2>📚 全部资源</h2>
+            
+            <h3 style="margin: 2rem 0 1rem;">📖 书籍</h3>
+            <div class="resource-grid">
+                {{BOOK_CARDS}}
+            </div>
+
+            <h3 style="margin: 2rem 0 1rem;">🎥 课程</h3>
+            <div class="resource-grid">
+                {{COURSE_CARDS}}
+            </div>
+
+            <h3 style="margin: 2rem 0 1rem;">🔧 框架和工具</h3>
+            <div class="resource-grid">
+                {{TOOL_CARDS}}
+            </div>
+        </section>
+
+        <!-- 知识图谱 -->
+        <section id="knowledge-graph">
+            <h2>🕸️ 知识图谱</h2>
+            <div class="graph-placeholder">
+                <p>概念依赖关系可视化</p>
+                <p style="font-size: 0.85rem; margin-top: 1rem;">{{KNOWLEDGE_GRAPH_SVG}}</p>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <h3>🚀 下一步行动</h3>
+        <ol>
+            {{NEXT_ACTIONS}}
+        </ol>
+        <p style="margin-top: 2rem; color: var(--text-secondary); font-size: 0.85rem;">
+            生成时间: {{GENERATED_AT}} | 学习主题: {{TOPIC}} | 学习范围: {{SCOPE}}
+        </p>
+    </footer>
+
+    <script>
+        // 进度追踪功能
+        document.querySelectorAll('.progress-checkbox').forEach(checkbox => {
+            const key = 'progress_' + checkbox.dataset.id;
+            checkbox.checked = localStorage.getItem(key) === 'true';
+            
+            checkbox.addEventListener('change', function() {
+                localStorage.setItem(key, this.checked);
+                updateProgress();
+            });
+        });
+
+        function updateProgress() {
+            const checkboxes = document.querySelectorAll('.progress-checkbox');
+            const checked = document.querySelectorAll('.progress-checkbox:checked').length;
+            const total = checkboxes.length;
+            const percent = total > 0 ? (checked / total) * 100 : 0;
+            
+            document.querySelector('.progress-fill').style.width = percent + '%';
+            document.querySelector('.progress-text').textContent = 
+                `学习进度: ${checked}/${total} 项资源`;
+        }
+
+        // 初始化进度
+        updateProgress();
+    </script>
+</body>
+</html>

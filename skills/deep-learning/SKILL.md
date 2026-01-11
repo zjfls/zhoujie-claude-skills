@@ -173,67 +173,283 @@ description: 根据学习主题和范围，搜集权威的书单、博客、网�
 - **必须重命名**：`{年份}_{第一作者}_{简短标题}.pdf`（不要保留原始文件名）
 - 命名示例：`2017_Vaswani_Attention_Is_All_You_Need.pdf`
 
-## 第四步：生成学习资料报告
+---
 
-创建一个结构化的 Markdown 报告，包含：
+## 第四步：知识体系构建
 
-```markdown
-# {主题} 学习资料汇总
+⚠️ **核心步骤**：基于搜集到的资源（特别是论文），构建结构化的知识体系。
 
-## 概述
-- 学习主题：
-- 学习范围：
-- 生成时间：
+### 1. 论文知识提取
+对于每篇下载的论文，提取以下信息：
 
-## 推荐书单
-| 书名 | 作者 | 难度 | 评分 | 说明 |
-|------|------|------|------|------|
+| 提取项 | 说明 |
+|--------|------|
+| **核心概念** | 论文提出或依赖的关键概念 |
+| **前置知识** | 理解论文需要的先修知识 |
+| **创新点** | 论文的主要贡献 |
+| **应用场景** | 技术的实际应用 |
+| **难度等级** | 入门/进阶/专家 |
 
-## 博客和教程
-### 入门级
-### 进阶级
-### 专家级
+### 2. 建立概念依赖关系
+分析概念之间的依赖，构建学习图谱：
 
-## 推荐网站
-### 课程平台
-### 学习社区
-### 官方资源
-
-## 框架和工具
-| 名称 | 官网 | GitHub Stars | 适用场景 |
-|------|------|--------------|----------|
-
-## 论文阅读清单
-### 必读经典论文
-### 综述论文
-### 最新前沿论文
-
-## 论文下载状态
-| 论文标题 | 下载状态 | 本地路径/下载链接 |
-|----------|----------|-------------------|
-
-## 推荐学习路径
-1. ...
-2. ...
+```
+基础概念（先学）
+    ↓
+核心技术（中间）
+    ↓
+进阶应用（后学）
+    ↓
+前沿研究（最后）
 ```
 
-## 第五步：保存和展示
+### 3. 划分学习阶段
+将所有资源按难度和依赖关系划分为四个阶段：
 
-1. **保存报告**：
-   - 路径：`./learning-resources/{主题}/README.md`（**当前工作目录**）
-   - 同时创建 `resources.json` 保存结构化数据
+| 阶段 | 名称 | 内容 | 目标 |
+|------|------|------|------|
+| **阶段 1** | 基础概念 | 数学基础、核心定义、入门教程 | 建立基本认知 |
+| **阶段 2** | 核心技术 | 经典算法、核心论文、实践框架 | 掌握核心能力 |
+| **阶段 3** | 进阶应用 | 工程实践、优化技巧、实战项目 | 能够独立应用 |
+| **阶段 4** | 前沿研究 | 最新论文、SOTA方法、开放问题 | 了解研究前沿 |
 
-2. **创建资源目录**（在**当前工作目录**下）：
+### 4. 生成学习路径
+为每个阶段规划具体的学习顺序和建议时间：
+
+```
+阶段 N: {阶段名称}
+├── 学习目标: {本阶段要达成的目标}
+├── 建议时长: {预估学习时间}
+├── 资源列表:
+│   ├── 必修: {必须学习的资源}
+│   └── 选修: {可选的补充资源}
+├── 论文阅读:
+│   ├── {论文1} - {核心知识点}
+│   └── {论文2} - {核心知识点}
+└── 阶段检验: {如何判断已掌握本阶段内容}
+```
+
+## 第五步：生成结构化 HTML 学习指南
+
+⚠️ **重要**：生成交互式 HTML 学习文档，而非简单的 Markdown 列表。
+
+### HTML 文档结构
+
+生成 `learning-guide.html`，包含以下部分：
+
+```html
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>{主题} 学习指南</title>
+    <!-- 内嵌样式：现代暗色主题 -->
+</head>
+<body>
+    <!-- 1. 顶部导航 -->
+    <header>
+        <h1>{主题} 学习指南</h1>
+        <div class="progress-bar">学习进度: 0/{总资源数}</div>
+        <nav>快速导航: 阶段1 | 阶段2 | 阶段3 | 阶段4</nav>
+    </header>
+
+    <!-- 2. 概览信息 -->
+    <section id="overview">
+        <p>学习主题 | 学习范围 | 生成时间</p>
+        <p>总览: {书籍数} 本书 | {课程数} 门课程 | {论文数} 篇论文</p>
+    </section>
+
+    <!-- 3. 学习路径（核心部分） -->
+    <section id="learning-path">
+        <!-- 阶段卡片，每个阶段包含目标、资源、论文、检验标准 -->
+        <div class="stage" id="stage-1">...</div>
+        <div class="stage" id="stage-2">...</div>
+        <div class="stage" id="stage-3">...</div>
+        <div class="stage" id="stage-4">...</div>
+    </section>
+
+    <!-- 4. 资源详情 -->
+    <section id="resources">
+        <!-- 书籍卡片 -->
+        <div class="resource-category" id="books">...</div>
+        <!-- 课程卡片 -->
+        <div class="resource-category" id="courses">...</div>
+        <!-- 论文卡片（含知识点摘要） -->
+        <div class="resource-category" id="papers">...</div>
+    </section>
+
+    <!-- 5. 知识图谱（可选） -->
+    <section id="knowledge-graph">
+        <!-- 概念依赖关系的可视化 -->
+    </section>
+
+    <!-- 6. 底部行动建议 -->
+    <footer>
+        <h3>下一步行动</h3>
+        <ol>具体建议...</ol>
+    </footer>
+</body>
+</html>
+```
+
+### 样式规范
+
+| 元素 | 样式要求 |
+|------|----------|
+| **整体** | 暗色主题（#1a1a2e 背景），现代感 |
+| **阶段卡片** | 渐变边框，悬停动画 |
+| **资源卡片** | 圆角，阴影，标签分类 |
+| **进度条** | 动态显示学习进度 |
+| **论文卡片** | 突出显示知识点，链接到本地 PDF |
+
+### 阶段卡片内容
+
+每个阶段卡片包含：
+
+```html
+<div class="stage">
+    <div class="stage-header">
+        <span class="stage-number">阶段 {N}</span>
+        <h2>{阶段名称}</h2>
+        <span class="stage-duration">{建议时长}</span>
+    </div>
+    <div class="stage-goal">
+        <h4>🎯 学习目标</h4>
+        <p>{本阶段要达成的目标}</p>
+    </div>
+    <div class="stage-resources">
+        <h4>📚 学习资源</h4>
+        <div class="required">必修: ...</div>
+        <div class="optional">选修: ...</div>
+    </div>
+    <div class="stage-papers">
+        <h4>📄 论文阅读</h4>
+        <ul>
+            <li><a href="papers/{文件名}">{论文标题}</a> - {核心知识点}</li>
+        </ul>
+    </div>
+    <div class="stage-checkpoint">
+        <h4>✅ 阶段检验</h4>
+        <p>{如何判断已掌握本阶段内容}</p>
+    </div>
+</div>
+```
+
+### 论文卡片内容
+
+```html
+<div class="paper-card">
+    <div class="paper-header">
+        <span class="paper-stage">阶段 {N}</span>
+        <span class="paper-difficulty">{难度}</span>
+    </div>
+    <h3 class="paper-title">{论文标题}</h3>
+    <p class="paper-meta">{作者} | {年份} | {会议/期刊}</p>
+    <div class="paper-knowledge">
+        <h4>💡 核心知识点</h4>
+        <ul>
+            <li>{知识点1}</li>
+            <li>{知识点2}</li>
+        </ul>
+    </div>
+    <div class="paper-prereq">
+        <h4>📋 前置知识</h4>
+        <p>{需要的先修知识}</p>
+    </div>
+    <div class="paper-actions">
+        <a href="papers/{文件名}" class="btn-primary">📥 阅读论文</a>
+        <a href="{arxiv链接}" class="btn-secondary">🔗 arXiv</a>
+    </div>
+</div>
+```
+
+### 同时生成 Markdown 版本
+
+为兼容性保留 `README.md`，内容精简版：
+
+```markdown
+# {主题} 学习资料
+
+> 📖 完整学习指南请打开 [learning-guide.html](./learning-guide.html)
+
+## 快速概览
+- 书籍: {N} 本
+- 课程: {N} 门  
+- 论文: {N} 篇
+
+## 学习路径概要
+1. **阶段 1 - 基础概念**: {简述}
+2. **阶段 2 - 核心技术**: {简述}
+3. **阶段 3 - 进阶应用**: {简述}
+4. **阶段 4 - 前沿研究**: {简述}
+
+## 下载的论文
+| 文件名 | 标题 | 阶段 |
+|--------|------|------|
+```
+
+## 第六步：保存和展示
+
+1. **保存文件**（在**当前工作目录**下）：
    ```
    ./learning-resources/{主题}/
-   ├── README.md          # 学习资料报告
-   ├── resources.json     # 结构化数据
-   ├── papers/            # 下载的论文
-   ├── code/              # 相关代码资源（如有）
-   └── notes/             # 学习笔记目录（预留）
+   ├── learning-guide.html    # 🌟 主要学习指南（HTML）
+   ├── README.md              # 快速概览（Markdown）
+   ├── resources.json         # 结构化数据
+   ├── knowledge-graph.json   # 知识图谱数据
+   ├── papers/                # 下载的论文
+   │   ├── 2017_Vaswani_Attention.pdf
+   │   └── ...
+   ├── code/                  # 相关代码资源（如有）
+   └── notes/                 # 学习笔记目录（预留）
    ```
 
-3. **打开报告**：生成完成后用默认应用打开 README.md
+2. **resources.json 结构**：
+   ```json
+   {
+     "meta": {
+       "topic": "{主题}",
+       "scope": "{学习范围}",
+       "generated_at": "{时间戳}"
+     },
+     "stages": [
+       {
+         "id": 1,
+         "name": "基础概念",
+         "goal": "{目标}",
+         "duration": "{时长}",
+         "resources": [...],
+         "papers": [...],
+         "checkpoint": "{检验标准}"
+       }
+     ],
+     "books": [...],
+     "courses": [...],
+     "papers": [
+       {
+         "title": "{标题}",
+         "authors": "{作者}",
+         "year": 2017,
+         "stage": 2,
+         "difficulty": "进阶",
+         "knowledge_points": [...],
+         "prerequisites": [...],
+         "local_path": "papers/xxx.pdf",
+         "arxiv_url": "..."
+       }
+     ],
+     "knowledge_graph": {
+       "nodes": [...],
+       "edges": [...]
+     }
+   }
+   ```
+
+3. **打开学习指南**：
+   - 生成完成后用默认浏览器打开 `learning-guide.html`
+   - macOS: `open learning-guide.html`
+   - Linux: `xdg-open learning-guide.html`
+   - Windows: `start learning-guide.html`
 
 ## 工作流程总结
 
@@ -242,8 +458,9 @@ description: 根据学习主题和范围，搜集权威的书单、博客、网�
 2. WebSearch（优先） -> 搜集各类资源（Brave Search备用，需sleep 1）
 3. 评估筛选 -> 保留权威高质量资源
 4. 论文下载（高优先级） -> 下载重要论文并按规范重命名
-5. 生成报告 -> 创建结构化Markdown文档
-6. 保存展示 -> 保存文件并打开查看
+5. 知识体系构建 -> 提取论文知识点，划分学习阶段，生成学习路径
+6. 生成 HTML 指南 -> 创建结构化交互式学习文档
+7. 保存展示 -> 保存文件并用浏览器打开
 ```
 
 ## 注意事项
