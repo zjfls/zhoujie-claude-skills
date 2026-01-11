@@ -5,7 +5,7 @@ const url = require('url');
 const { spawn } = require('child_process');
 
 const PORT = 3456;
-const BASE_DIR = __dirname;
+const BASE_DIR = path.join(__dirname, "..");
 // 支持从环境变量或当前工作目录读取工作目录
 const WORK_DIR = process.env.NEWS_WORK_DIR || process.cwd();
 
@@ -42,7 +42,7 @@ const server = http.createServer((req, res) => {
     console.log(`${req.method} ${pathname}`);
 
     if (pathname === '/news-ai.js') {
-        const scriptPath = path.join(BASE_DIR, 'news-ai.js');
+        const scriptPath = path.join(__dirname, 'news-ai.js');
         fs.readFile(scriptPath, (err, data) => {
             if (err) {
                 res.writeHead(404);
