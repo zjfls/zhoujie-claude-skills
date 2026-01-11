@@ -65,7 +65,7 @@ const server = http.createServer((req, res) => {
             return;
         }
 
-        const analysisFile = path.join(WORK_DIR, 'news-summary', timestamp, 'analysis', `news_analysis_${newsId}.md`);
+        const analysisFile = path.join(WORK_DIR, 'news-summary', timestamp, 'analysis', `news_analysis_${newsId}.html`);
 
         fs.access(analysisFile, fs.constants.F_OK, (err) => {
             console.log('发送成功响应'); res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -87,13 +87,13 @@ const server = http.createServer((req, res) => {
                 const { newsId, newsUrl, newsSource, newsTime, timestamp, title, summary, customPrompt } = data;
 
                 const analysisDir = path.join(WORK_DIR, 'news-summary', timestamp, 'analysis');
-                const analysisFile = path.join(analysisDir, `news_analysis_${newsId}.md`);
+                const analysisFile = path.join(analysisDir, `news_analysis_${newsId}.html`);
 
                 // 构建AI提示词
                 const newsTitle = title || '未知标题';
                 const newsSummary = summary || '暂无摘要';
 
-                let aiPrompt = `请对以下新闻进行深度分析解读：
+                let aiPrompt = `请对以下新闻进行深度分析解读，并生成一个完整的HTML页面。
 
 ## 新闻信息
 - **标题**: ${newsTitle}
@@ -115,7 +115,15 @@ ${newsSummary}
                     aiPrompt += `\n\n## 用户自定义分析角度\n${customPrompt}`;
                 }
 
-                aiPrompt += `\n\n请用Markdown格式输出，结构清晰，内容深入。`;
+                aiPrompt += `\n\n## 输出格式要求
+请直接输出一个完整的HTML页面（包含<!DOCTYPE html>、<html>、<head>、<body>等标签），页面需要：
+1. 使用现代化的CSS样式，美观易读
+2. 响应式设计，适配移动端和桌面端
+3. 使用渐变背景和卡片布局
+4. 包含新闻信息、分析内容、底部版权等完整结构
+5. 颜色主题使用 #667eea 和 #764ba2 渐变
+6. 字体使用系统默认字体栈
+7. 不要使用Markdown格式，直接输出HTML代码`;
 
                 // 创建分析目录
                 if (!fs.existsSync(analysisDir)) {
@@ -170,24 +178,10 @@ ${newsSummary}
                         return;
                     }
 
-                    // 保存分析结果
-                    const analysisContent = `# 新闻深度解读
+                    // 直接保存 Claude 输出的 HTML 内容
+                    const htmlContent = output.trim();
 
-## 新闻信息
-- **标题**: ${newsTitle}
-- **来源**: ${newsSource || '未知来源'}
-- **时间**: ${newsTime || '未知时间'}
-- **链接**: ${newsUrl || '#'}
-
----
-
-${output.trim()}
-
----
-*本解读由AI自动生成，仅供参考*
-`;
-
-                    fs.writeFile(analysisFile, analysisContent, 'utf8', (err) => {
+                    fs.writeFile(analysisFile, htmlContent, 'utf8', (err) => {
                         if (err) {
                             console.error('写入分析文件失败:', err);
                             res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -224,7 +218,7 @@ ${output.trim()}
             return;
         }
 
-        const analysisFile = path.join(WORK_DIR, 'news-summary', timestamp, 'analysis', `news_analysis_${newsId}.md`);
+        const analysisFile = path.join(WORK_DIR, 'news-summary', timestamp, 'analysis', `news_analysis_${newsId}.html`);
 
         fs.unlink(analysisFile, (err) => {
             if (err) {
@@ -251,7 +245,7 @@ ${output.trim()}
             return;
         }
 
-        const analysisFile = path.join(WORK_DIR, 'news-summary', timestamp, 'analysis', `news_analysis_${newsId}.md`);
+        const analysisFile = path.join(WORK_DIR, 'news-summary', timestamp, 'analysis', `news_analysis_${newsId}.html`);
 
         fs.readFile(analysisFile, 'utf8', (err, data) => {
             if (err) {
@@ -260,46 +254,9 @@ ${output.trim()}
                 return;
             }
 
-            const html = `<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI 新闻解读</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Microsoft YaHei', sans-serif;
-            max-width: 800px;
-            margin: 40px auto;
-            padding: 20px;
-            line-height: 1.6;
-            background: #f5f5f5;
-        }
-        .container {
-            background: white;
-            padding: 40px;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-        h1 { color: #1f2937; border-bottom: 3px solid #667eea; padding-bottom: 10px; }
-        h2 { color: #374151; margin-top: 30px; }
-        h3 { color: #4b5563; }
-        a { color: #667eea; }
-        pre { background: #f3f4f6; padding: 15px; border-radius: 8px; overflow-x: auto; }
-        code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; }
-        ul, ol { padding-left: 30px; }
-        li { margin: 8px 0; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <pre style="white-space: pre-wrap;">${escapeHtml(data)}</pre>
-    </div>
-</body>
-</html>`;
-
+            // 直接返回 HTML 内容
             res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-            res.end(html);
+            res.end(data);
         });
         return;
     }
@@ -347,15 +304,6 @@ ${output.trim()}
     res.writeHead(404);
     res.end('Not found');
 });
-
-function escapeHtml(text) {
-    return text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-}
 
 server.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}/`);

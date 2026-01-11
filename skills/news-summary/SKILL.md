@@ -48,6 +48,12 @@ description: 新闻搜索、新闻摘要、新闻汇总、热点新闻、最新�
 ### 4. AI 解读功能
 - **服务器**：Node.js HTTP 服务器(lib/server.js，端口 3456)
 - **真实 AI 分析**：通过 Claude Code CLI 生成深度解读
+- **输出格式**：完整的 HTML 页面
+  * 存储位置：`<工作目录>/news-summary/<timestamp_topic>/analysis/news_analysis_<id>.html`
+  * 包含完整的 HTML 结构（<!DOCTYPE html>、<html>、<head>、<body>等）
+  * 使用现代化的 CSS 样式，响应式设计
+  * 颜色主题使用 #667eea 和 #764ba2 渐变
+  * 包含新闻信息、分析内容、底部版权等完整结构
 - **自定义 Prompt**：点击"AI解读"按钮后可输入自定义分析角度
 - **阻塞和超时**：
   * 生成时显示加载模态框
@@ -58,9 +64,9 @@ description: 新闻搜索、新闻摘要、新闻汇总、热点新闻、最新�
   * 支持删除和重新生成
 - **服务端点**：
   * `GET /check-analysis?newsId=<id>&timestamp=<timestamp_topic>` - 检查解读文件是否存在
-  * `POST /analyze` - 生成 AI 解读（支持 customPrompt）
+  * `POST /analyze` - 生成 AI 解读（支持 customPrompt，输出完整 HTML）
   * `DELETE /delete-analysis?newsId=<id>&timestamp=<timestamp_topic>` - 删除解读
-  * `GET /view-analysis?newsId=<id>&timestamp=<timestamp_topic>` - 查看解读
+  * `GET /view-analysis?newsId=<id>&timestamp=<timestamp_topic>` - 查看解读（直接返回 HTML）
   * `GET /news-summary/<timestamp_topic>/<filename>` - 静态文件服务
   * `GET /news-ai.js` - 前端脚本
 
