@@ -29,17 +29,30 @@ function generateHistoryHTML(quizzes, stats, wrongQuestions) {
         .slice(0, 10)
         .reverse();
 
-    // 按知识点分组错题
+    // 按知识点分组错题（去重）
     const wrongByKnowledge = {};
+    const seenQuestions = new Map(); // 用于去重，key是题目内容，value是题目对象
+
     wrongQuestions.forEach(q => {
-        const kps = JSON.parse(q.knowledge_points || '[]');
-        kps.forEach(kp => {
-            if (!wrongByKnowledge[kp]) {
-                wrongByKnowledge[kp] = [];
-            }
-            wrongByKnowledge[kp].push(q);
-        });
+        // 基于题目内容去重
+        const questionKey = q.content.trim();
+
+        if (!seenQuestions.has(questionKey)) {
+            seenQuestions.set(questionKey, q);
+
+            // knowledge_points 已经在 database.js 中解析过了，直接使用
+            const kps = q.knowledge_points || [];
+            kps.forEach(kp => {
+                if (!wrongByKnowledge[kp]) {
+                    wrongByKnowledge[kp] = [];
+                }
+                wrongByKnowledge[kp].push(q);
+            });
+        }
     });
+
+    // 获取去重后的错题总数
+    const uniqueWrongQuestions = Array.from(seenQuestions.values());
 
     return `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -520,6 +533,7 @@ function generateHistoryHTML(quizzes, stats, wrongQuestions) {
     <div class="container">
         <!-- 顶部标题 -->
         <div class="header">
+            <a href="/dashboard" class="back-link" style="display: inline-block; color: #667eea; text-decoration: none; margin-bottom: 15px; font-weight: 600; transition: all 0.3s;">← 返回 Dashboard</a>
             <h1>📚 学习历史记录</h1>
             <p>追踪你的学习进度，发现提升空间</p>
         </div>
@@ -544,8 +558,8 @@ function generateHistoryHTML(quizzes, stats, wrongQuestions) {
             </div>
             <div class="stat-card">
                 <div class="stat-icon">📕</div>
-                <div class="stat-value">${wrongQuestions.length}</div>
-                <div class="stat-label">错题收集</div>
+                <div class="stat-value">${uniqueWrongQuestions.length}</div>
+                <div class="stat-label">错题收集（已去重）</div>
             </div>
         </div>
 
@@ -555,17 +569,17 @@ function generateHistoryHTML(quizzes, stats, wrongQuestions) {
             <h2>📈 成绩趋势（最近10次）</h2>
             <div class="chart-container">
                 ${recentQuizzes.map(q => {
-                    const score = q.total_score > 0 ? (q.obtained_score / q.total_score * 100) : 0;
-                    const height = Math.max(20, score * 2.5);
-                    const date = new Date(q.submitted_at);
-                    const dateStr = `${date.getMonth() + 1}/${date.getDate()}`;
-                    return `
+        const score = q.total_score > 0 ? (q.obtained_score / q.total_score * 100) : 0;
+        const height = Math.max(20, score * 2.5);
+        const date = new Date(q.submitted_at);
+        const dateStr = `${date.getMonth() + 1}/${date.getDate()}`;
+        return `
                     <div class="chart-bar" style="height: ${height}px;" title="${q.topic} - ${score.toFixed(1)}%">
                         <div class="chart-bar-value">${score.toFixed(0)}%</div>
                         <div class="chart-bar-label">${dateStr}</div>
                     </div>
                     `;
-                }).join('')}
+    }).join('')}
             </div>
         </div>
         ` : ''}
@@ -576,8 +590,8 @@ function generateHistoryHTML(quizzes, stats, wrongQuestions) {
             <h2>🎯 知识点掌握情况</h2>
             <div class="knowledge-grid">
                 ${knowledgeList.map(kp => {
-                    const color = kp.mastery >= 80 ? '#28a745' : kp.mastery >= 60 ? '#ffc107' : '#dc3545';
-                    return `
+        const color = kp.mastery >= 80 ? '#28a745' : kp.mastery >= 60 ? '#ffc107' : '#dc3545';
+        return `
                     <div class="knowledge-item">
                         <div class="knowledge-name">${kp.name}</div>
                         <div class="knowledge-bar-container">
@@ -588,7 +602,7 @@ function generateHistoryHTML(quizzes, stats, wrongQuestions) {
                         <div class="knowledge-stats">${kp.correct}/${kp.total} 正确</div>
                     </div>
                     `;
-                }).join('')}
+    }).join('')}
             </div>
         </div>
         ` : ''}
@@ -598,19 +612,19 @@ function generateHistoryHTML(quizzes, stats, wrongQuestions) {
             <h2>⏰ 测验历史</h2>
             <div class="timeline">
                 ${quizzes.map(q => {
-                    const hasSubmission = q.submitted_at;
-                    const score = hasSubmission && q.total_score > 0 ? (q.obtained_score / q.total_score * 100) : 0;
-                    const isPassed = q.pass_status === 'pass';
-                    const date = hasSubmission ? new Date(q.submitted_at) : new Date(q.created_at);
-                    const dateStr = date.toLocaleString('zh-CN', {
-                        year: 'numeric',
-                        month: '2-digit',
-                        day: '2-digit',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    });
+        const hasSubmission = q.submitted_at;
+        const score = hasSubmission && q.total_score > 0 ? (q.obtained_score / q.total_score * 100) : 0;
+        const isPassed = q.pass_status === 'pass';
+        const date = hasSubmission ? new Date(q.submitted_at) : new Date(q.created_at);
+        const dateStr = date.toLocaleString('zh-CN', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
 
-                    return `
+        return `
                     <div class="timeline-item ${hasSubmission ? 'completed' : ''}">
                         <div class="timeline-header">
                             <div class="timeline-topic">${q.topic}</div>
@@ -635,18 +649,18 @@ function generateHistoryHTML(quizzes, stats, wrongQuestions) {
                         </div>
                     </div>
                     `;
-                }).join('')}
+    }).join('')}
             </div>
         </div>
 
         <!-- 错题本 -->
-        ${wrongQuestions.length > 0 ? `
+        ${uniqueWrongQuestions.length > 0 ? `
         <div class="wrong-book-card">
-            <h2>📕 完整错题本（${wrongQuestions.length} 题）</h2>
+            <h2>📕 完整错题本（${uniqueWrongQuestions.length} 题，已去重）</h2>
             <div class="wrong-by-knowledge">
                 ${Object.keys(wrongByKnowledge).map(kp => {
-                    const questions = wrongByKnowledge[kp];
-                    return `
+        const questions = wrongByKnowledge[kp];
+        return `
                     <div class="knowledge-section">
                         <div class="knowledge-header">
                             <span>${kp}</span>
@@ -664,7 +678,7 @@ function generateHistoryHTML(quizzes, stats, wrongQuestions) {
                         `).join('')}
                     </div>
                     `;
-                }).join('')}
+    }).join('')}
             </div>
         </div>
         ` : ''}

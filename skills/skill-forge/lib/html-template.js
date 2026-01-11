@@ -77,6 +77,21 @@ function generateQuizHTML(quiz, questions) {
             margin-bottom: 8px;
         }
 
+        .back-to-dashboard {
+            display: inline-block;
+            color: #667eea;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            transition: all 0.3s;
+        }
+
+        .back-to-dashboard:hover {
+            color: #764ba2;
+            transform: translateX(-3px);
+        }
+
         .header-left .meta {
             display: flex;
             gap: 15px;
@@ -473,6 +488,7 @@ function generateQuizHTML(quiz, questions) {
     <!-- 顶部栏 -->
     <div class="header">
         <div class="header-left">
+            <a href="/dashboard" class="back-to-dashboard">← Dashboard</a>
             <h1>${quiz.topic}</h1>
             <div class="meta">
                 <span class="difficulty-badge ${difficultyClass[quiz.difficulty]}">${difficultyMap[quiz.difficulty]}</span>

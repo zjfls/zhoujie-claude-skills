@@ -6,6 +6,9 @@ const { spawn } = require('child_process');
 const { db, DATA_DIR, QUIZZES_DIR, HISTORY_DIR } = require('./database');
 const { generateResultHTML } = require('./result-template');
 const { generateHistoryHTML } = require('./history-template');
+const { generateDashboardHTML } = require('./dashboard-template');
+const { generateQuestionSearchHTML } = require('./question-search-template');
+const { generateQuizSearchHTML } = require('./quiz-search-template');
 const os = require('os');
 
 // 读取配置文件
@@ -68,6 +71,128 @@ const server = http.createServer(async (req, res) => {
     console.log(`${req.method} ${pathname}`);
 
     try {
+        // ==================== Dashboard首页 ====================
+
+        // Dashboard首页
+        if (pathname === '/' || pathname === '/dashboard') {
+            try {
+                const quizzes = await db.getAllQuizzes();
+                const dashboardHTML = generateDashboardHTML(quizzes);
+                res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+                res.end(dashboardHTML);
+            } catch (err) {
+                console.error('生成Dashboard失败:', err);
+                res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' });
+                res.end(`
+                    <!DOCTYPE html>
+                    <html><head><meta charset="UTF-8"><title>错误</title></head>
+                    <body style="font-family: sans-serif; padding: 40px; text-align: center;">
+                        <h1>❌ Dashboard加载失败</h1>
+                        <p>错误信息：${err.message}</p>
+                        <p><a href="/">重新加载</a></p>
+                    </body></html>
+                `);
+            }
+            return;
+        }
+
+        // 题目搜索页面
+        if (pathname === '/search-questions') {
+            try {
+                const query = parsedUrl.query.q || '';
+                let results = [];
+
+                if (query) {
+                    // 搜索题目内容和知识点
+                    const sql = `
+                        SELECT q.id, q.quiz_id, q.question_number, q.content, q.options, q.knowledge_points,
+                               qz.topic as quiz_topic, qz.difficulty, qz.created_at
+                        FROM questions q
+                        JOIN quizzes qz ON q.quiz_id = qz.quiz_id
+                        WHERE q.content LIKE ? OR q.knowledge_points LIKE ?
+                        ORDER BY qz.created_at DESC
+                        LIMIT 50
+                    `;
+
+                    const searchPattern = `%${query}%`;
+                    const rows = await db.all(sql, [searchPattern, searchPattern]);
+
+                    results = rows.map(row => ({
+                        ...row,
+                        options: row.options ? JSON.parse(row.options) : null,
+                        knowledge_points: JSON.parse(row.knowledge_points || '[]')
+                    }));
+                }
+
+                const searchHTML = generateQuestionSearchHTML(query, results);
+                res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+                res.end(searchHTML);
+            } catch (err) {
+                console.error('生成题目搜索页面失败:', err);
+                res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' });
+                res.end(`
+                    <!DOCTYPE html>
+                    <html><head><meta charset="UTF-8"><title>错误</title></head>
+                    <body style="font-family: sans-serif; padding: 40px; text-align: center;">
+                        <h1>❌ 搜索失败</h1>
+                        <p>错误信息：${err.message}</p>
+                        <p><a href="/search-questions">返回搜索</a></p>
+                    </body></html>
+                `);
+            }
+            return;
+        }
+
+        // 试卷搜索页面
+        if (pathname === '/search-quizzes') {
+            try {
+                const query = parsedUrl.query.q || '';
+                let results = [];
+
+                if (query) {
+                    // 搜索试卷主题
+                    const sql = `
+                        SELECT q.quiz_id, q.topic, q.topic_detail, q.difficulty, q.question_count, q.created_at, q.status,
+                               (SELECT COUNT(*) FROM submissions s WHERE s.quiz_id = q.quiz_id) as submission_count
+                        FROM quizzes q
+                        WHERE q.topic LIKE ? OR q.topic_detail LIKE ?
+                        ORDER BY q.created_at DESC
+                        LIMIT 50
+                    `;
+
+                    const searchPattern = `%${query}%`;
+                    results = await db.all(sql, [searchPattern, searchPattern]);
+                } else {
+                    // 无搜索词时显示所有试卷
+                    const sql = `
+                        SELECT q.quiz_id, q.topic, q.topic_detail, q.difficulty, q.question_count, q.created_at, q.status,
+                               (SELECT COUNT(*) FROM submissions s WHERE s.quiz_id = q.quiz_id) as submission_count
+                        FROM quizzes q
+                        ORDER BY q.created_at DESC
+                        LIMIT 50
+                    `;
+                    results = await db.all(sql);
+                }
+
+                const searchHTML = generateQuizSearchHTML(query, results);
+                res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+                res.end(searchHTML);
+            } catch (err) {
+                console.error('生成试卷搜索页面失败:', err);
+                res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' });
+                res.end(`
+                    <!DOCTYPE html>
+                    <html><head><meta charset="UTF-8"><title>错误</title></head>
+                    <body style="font-family: sans-serif; padding: 40px; text-align: center;">
+                        <h1>❌ 搜索失败</h1>
+                        <p>错误信息：${err.message}</p>
+                        <p><a href="/search-quizzes">返回搜索</a></p>
+                    </body></html>
+                `);
+            }
+            return;
+        }
+
         // ==================== 静态文件服务 ====================
 
         // 前端脚本
@@ -292,6 +417,45 @@ const server = http.createServer(async (req, res) => {
             return;
         }
 
+        // 搜索题目
+        if (pathname === '/api/search-questions' && req.method === 'GET') {
+            const query = parsedUrl.query.q;
+            if (!query) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Missing query parameter' }));
+                return;
+            }
+
+            try {
+                // 搜索题目内容和知识点
+                const sql = `
+                    SELECT q.id, q.quiz_id, q.question_number, q.content, q.knowledge_points,
+                           qz.topic as quiz_topic, qz.difficulty, qz.created_at
+                    FROM questions q
+                    JOIN quizzes qz ON q.quiz_id = qz.quiz_id
+                    WHERE q.content LIKE ? OR q.knowledge_points LIKE ?
+                    ORDER BY qz.created_at DESC
+                    LIMIT 50
+                `;
+
+                const searchPattern = `%${query}%`;
+                const rows = await db.all(sql, [searchPattern, searchPattern]);
+
+                const results = rows.map(row => ({
+                    ...row,
+                    knowledge_points: JSON.parse(row.knowledge_points || '[]')
+                }));
+
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ results, total: results.length }));
+            } catch (err) {
+                console.error('搜索题目失败:', err);
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: err.message }));
+            }
+            return;
+        }
+
         // 生成历史报告页面
         if (pathname === '/api/generate-history-report' && req.method === 'POST') {
             try {
@@ -316,6 +480,78 @@ const server = http.createServer(async (req, res) => {
                 res.writeHead(500, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ error: err.message }));
             }
+            return;
+        }
+
+        // 删除考试提交记录（不删除试卷模板）
+        if (pathname === '/api/delete-submission' && req.method === 'DELETE') {
+            let body = '';
+            req.on('data', chunk => {
+                body += chunk.toString();
+            });
+
+            req.on('end', async () => {
+                try {
+                    const data = JSON.parse(body);
+                    const { quiz_id } = data;
+
+                    if (!quiz_id) {
+                        res.writeHead(400, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ error: 'Missing quiz_id' }));
+                        return;
+                    }
+
+                    console.log(`正在删除考试记录: ${quiz_id}`);
+
+                    // 1. 获取该 quiz 的最新 submission_id
+                    const submission = await db.get(
+                        'SELECT submission_id FROM submissions WHERE quiz_id = ? ORDER BY submitted_at DESC LIMIT 1',
+                        [quiz_id]
+                    );
+
+                    if (!submission) {
+                        res.writeHead(404, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ error: '未找到提交记录' }));
+                        return;
+                    }
+
+                    // 2. 删除答案记录
+                    await db.run(
+                        'DELETE FROM answers WHERE submission_id = ?',
+                        [submission.submission_id]
+                    );
+
+                    // 3. 删除提交记录
+                    await db.run(
+                        'DELETE FROM submissions WHERE submission_id = ?',
+                        [submission.submission_id]
+                    );
+
+                    // 4. 删除成绩页面（如果存在）
+                    const resultPath = path.join(QUIZZES_DIR, quiz_id, 'result.html');
+                    if (fs.existsSync(resultPath)) {
+                        fs.unlinkSync(resultPath);
+                        console.log(`✓ 已删除成绩页面: ${resultPath}`);
+                    }
+
+                    // 5. 重置试卷状态为 created（可以重新答题）
+                    await db.run(
+                        "UPDATE quizzes SET status = 'created' WHERE quiz_id = ?",
+                        [quiz_id]
+                    );
+
+                    console.log(`✓ 考试记录 ${submission.submission_id} 已成功删除`);
+                    console.log(`✓ 试卷 ${quiz_id} 已重置，可以重新答题`);
+
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ success: true }));
+
+                } catch (err) {
+                    console.error('删除考试记录失败:', err);
+                    res.writeHead(500, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: err.message }));
+                }
+            });
             return;
         }
 
