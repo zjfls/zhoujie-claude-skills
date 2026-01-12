@@ -1,17 +1,17 @@
 /**
  * 生成Dashboard首页HTML
  */
-function generateDashboardHTML(quizzes) {
+function generateDashboardHTML(exams) {
     // 统计数据
-    const totalQuizzes = quizzes.length;
-    const completedQuizzes = quizzes.filter(q => q.submitted_at).length;
-    const averageScore = quizzes
-        .filter(q => q.total_score)
-        .reduce((sum, q) => sum + (q.obtained_score / q.total_score * 100), 0) / (completedQuizzes || 1);
+    const totalExams = exams.length;
+    const completedExams = exams.filter(e => e.status === 'completed').length;
+    const averageScore = exams
+        .filter(e => e.total_score)
+        .reduce((sum, e) => sum + (e.obtained_score / e.total_score * 100), 0) / (completedExams || 1);
 
     // 按状态分类
-    const completed = quizzes.filter(q => q.submitted_at);
-    const inProgress = quizzes.filter(q => !q.submitted_at);
+    const completed = exams.filter(e => e.status === 'completed');
+    const inProgress = exams.filter(e => e.status === 'in_progress');
 
     return `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -408,12 +408,12 @@ function generateDashboardHTML(quizzes) {
         <div class="stats-container">
             <div class="stat-card">
                 <div class="stat-icon">📝</div>
-                <div class="stat-value">${totalQuizzes}</div>
+                <div class="stat-value">${totalExams}</div>
                 <div class="stat-label">总测验数</div>
             </div>
             <div class="stat-card">
                 <div class="stat-icon">✅</div>
-                <div class="stat-value">${completedQuizzes}</div>
+                <div class="stat-value">${completedExams}</div>
                 <div class="stat-label">已完成</div>
             </div>
             <div class="stat-card">
@@ -472,7 +472,7 @@ function generateDashboardHTML(quizzes) {
                             <button class="btn btn-primary" onclick="retakeQuiz('${quiz.quiz_id}')">
                                 🔄 重做
                             </button>
-                            <button class="btn btn-danger" onclick="deleteQuiz('${quiz.quiz_id}')" style="background: #dc3545; color: white;">
+                            <button class="btn" onclick="deleteQuiz('${quiz.quiz_id}')" style="background: #dc3545; color: white;">
                                 🗑️ 删除记录
                             </button>
                         </div>
@@ -516,6 +516,9 @@ function generateDashboardHTML(quizzes) {
                             <button class="btn btn-success" onclick="continueQuiz('${quiz.quiz_id}')">
                                 继续答题 →
                             </button>
+                            <button class="btn" onclick="abandonExam('${quiz.exam_id}', '${quiz.quiz_id}')" style="background: #6c757d; color: white;">
+                                🚫 放弃答题
+                            </button>
                         </div>
                     </div>
                 `).join('')}
@@ -523,7 +526,7 @@ function generateDashboardHTML(quizzes) {
         </div>
         ` : ''}
 
-        ${totalQuizzes === 0 ? `
+        ${totalExams === 0 ? `
         <div class="section">
             <div class="empty-state">
                 <div class="empty-state-icon">📚</div>
@@ -553,35 +556,7 @@ function generateDashboardHTML(quizzes) {
             }
         }
 
-        async function viewHistory() {
-            try {
-                // 生成历史报告
-                const response = await fetch('/api/generate-history-report', {
-                    method: 'POST'
-                });
-                const data = await response.json();
 
-                if (data.success) {
-                    // 新窗口打开
-                    window.open(data.reportUrl, '_blank');
-                } else {
-                    alert('生成历史报告失败');
-                }
-            } catch (err) {
-                console.error('生成历史报告失败:', err);
-                alert('生成历史报告失败：' + err.message);
-            }
-        }
-
-        function navigateToQuestionSearchPage() {
-            // 新窗口打开
-            window.open('/search-questions', '_blank');
-        }
-
-        function navigateToQuizSearchPage() {
-            // 新窗口打开试卷搜索页
-            window.open('/search-quizzes', '_blank');
-        }
 
         async function deleteQuiz(quizId) {
             if (!confirm('确定要删除这次考试记录吗？\\n\\n说明：此操作只会删除本次提交记录和答案，试卷和题目会保留，你可以重新答题。')) {
@@ -608,6 +583,116 @@ function generateDashboardHTML(quizzes) {
             } catch (err) {
                 console.error('删除考试记录失败:', err);
                 alert('删除考试记录失败：' + err.message);
+            }
+        }
+
+        function navigateToQuizSearchPage() {
+            window.location.href = '/search-quizzes';
+        }
+
+        function navigateToQuestionSearchPage() {
+            window.location.href = '/search-questions';
+        }
+
+        async function viewHistory() {
+            try {
+                // 简单反馈
+                const button = document.querySelector('button[onclick="viewHistory()"]');
+                let originalText = '';
+                if (button) {
+                    originalText = button.innerHTML;
+                    button.disabled = true;
+                    button.innerHTML = '🔄 生成中...';
+                }
+
+                const response = await fetch('/api/generate-history-report', {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.reportUrl) {
+                        window.open(data.reportUrl, '_blank');
+                    } else {
+                        alert('未收到报告链接');
+                    }
+                } else {
+                    alert('生成报告失败');
+                }
+                
+                if (button) {
+                    button.disabled = false;
+                    button.innerHTML = originalText;
+                }
+            } catch (error) {
+                console.error('Error generating history report:', error);
+                alert('生成历史报告时出错');
+                const button = document.querySelector('button[onclick="viewHistory()"]');
+                if (button) {
+                    button.disabled = false;
+                    button.innerHTML = '📊 查看历史报告';
+                }
+            }
+        }
+
+        async function abandonExam(examId, quizId) {
+            if (!confirm('确定要放弃这次测验吗？\\n\\n说明：这将删除此测验记录，但保留试卷。')) {
+                return;
+            }
+
+            try {
+                // 清除本地存储的草稿
+                if (quizId) {
+                    localStorage.removeItem('quiz_' + quizId + '_draft');
+                    localStorage.removeItem('quiz_' + quizId + '_timer');
+                }
+                
+                // 调用删除测验 API
+                const response = await fetch('/api/delete-exam', {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ exam_id: examId })
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    alert('已放弃测验，记录已删除');
+                    window.location.reload();
+                } else {
+                    alert('操作失败：' + (data.error || '未知错误'));
+                }
+            } catch (err) {
+                console.error('放弃测验失败:', err);
+                alert('放弃测验失败：' + err.message);
+            }
+        }
+
+        async function deleteQuizCompletely(quizId) {
+            if (!confirm('确定要彻底删除这个试卷吗？\\n\\n⚠️ 警告：这将删除试卷、所有题目、答题记录和 AI 问答历史！\\n此操作不可撤销！')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/delete-quiz', {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ quiz_id: quizId })
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    alert('试卷已彻底删除');
+                    window.location.reload();
+                } else {
+                    alert('删除失败：' + (data.error || '未知错误'));
+                }
+            } catch (err) {
+                console.error('删除试卷失败:', err);
+                alert('删除试卷失败：' + err.message);
             }
         }
 

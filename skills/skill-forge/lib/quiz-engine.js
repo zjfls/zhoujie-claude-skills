@@ -5,6 +5,7 @@
 
     const quizState = {
         quizId: '',
+        examId: '',              // 新增：当前测验ID
         quiz: null,
         questions: [],
         answers: {},           // { questionNumber: userAnswer }
@@ -32,6 +33,9 @@
         // 加载试卷数据
         await loadQuizData();
 
+        // 创建或继续测验
+        await startOrContinueExam();
+
         // 尝试从localStorage恢复状态
         restoreState();
 
@@ -43,6 +47,26 @@
 
         // 显示第一题
         showQuestion(1);
+    }
+
+    /**
+     * 创建或继续测验
+     */
+    async function startOrContinueExam() {
+        try {
+            const response = await fetch('/api/start-exam', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ quiz_id: quizState.quizId })
+            });
+            const data = await response.json();
+
+            quizState.examId = data.exam_id;
+            console.log(data.isExisting ? '继续测验:' : '新建测验:', quizState.examId);
+        } catch (error) {
+            console.error('创建测验失败:', error);
+            alert('创建测验失败：' + error.message);
+        }
     }
 
     async function loadQuizData() {
@@ -291,11 +315,18 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    exam_id: quizState.examId,
                     quiz_id: quizState.quizId,
                     question_number: questionNumber,
                     user_query: userQuery
                 })
             });
+
+            // 检查响应状态
+            if (!response.ok) {
+                const text = await response.text();
+                throw new Error(`服务器错误 (${response.status}): ${text.substring(0, 200)}`);
+            }
 
             const data = await response.json();
             const requestId = data.requestId;
@@ -322,6 +353,12 @@
         const poll = async () => {
             try {
                 const response = await fetch(`/api/ai-status?requestId=${requestId}`);
+
+                // 检查响应状态
+                if (!response.ok) {
+                    throw new Error(`状态查询失败 (${response.status})`);
+                }
+
                 const data = await response.json();
 
                 if (data.status === 'success') {
@@ -598,6 +635,7 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    exam_id: quizState.examId,
                     quiz_id: quizState.quizId,
                     answers: quizState.answers,
                     time_spent: timeSpent

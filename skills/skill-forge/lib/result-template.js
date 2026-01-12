@@ -1,8 +1,22 @@
 /**
  * 生成成绩页面HTML
+ * @param {Object} quiz - 试卷信息
+ * @param {Object} submission - 提交记录
+ * @param {Array} questions - 题目列表
+ * @param {Array} answers - 答案列表
+ * @param {Array} aiInteractions - AI问答记录（可选）
  */
-function generateResultHTML(quiz, submission, questions, answers) {
+function generateResultHTML(quiz, submission, questions, answers, aiInteractions = []) {
     const percentage = (submission.obtained_score / submission.total_score * 100).toFixed(1);
+
+    // 按题号分组 AI 问答
+    const aiByQuestion = {};
+    aiInteractions.forEach(ai => {
+        if (!aiByQuestion[ai.question_number]) {
+            aiByQuestion[ai.question_number] = [];
+        }
+        aiByQuestion[ai.question_number].push(ai);
+    });
     const passThreshold = 60;
     const isPassed = submission.pass_status === 'pass';
 
@@ -542,15 +556,15 @@ function generateResultHTML(quiz, submission, questions, answers) {
         <!-- 统计卡片 -->
         <div class="stats-grid">
             ${Object.keys(typeStats).map(type => {
-                const stat = typeStats[type];
-                const typeNames = {
-                    'choice': '单选题',
-                    'multiple_choice': '多选题',
-                    'essay': '问答题',
-                    'code': '代码题'
-                };
-                const percent = (stat.obtained / stat.total * 100).toFixed(1);
-                return `
+        const stat = typeStats[type];
+        const typeNames = {
+            'choice': '单选题',
+            'multiple_choice': '多选题',
+            'essay': '问答题',
+            'code': '代码题'
+        };
+        const percent = (stat.obtained / stat.total * 100).toFixed(1);
+        return `
                 <div class="stat-card">
                     <h3>${typeNames[type]}</h3>
                     <div class="stat-value">${stat.obtained.toFixed(1)} / ${stat.total}</div>
@@ -560,7 +574,7 @@ function generateResultHTML(quiz, submission, questions, answers) {
                     </div>
                 </div>
                 `;
-            }).join('')}
+    }).join('')}
         </div>
 
         <!-- 知识点掌握情况 -->
@@ -569,10 +583,10 @@ function generateResultHTML(quiz, submission, questions, answers) {
             <h2>🎯 知识点掌握情况</h2>
             <div class="knowledge-list">
                 ${Object.keys(knowledgeStats).map(kp => {
-                    const stat = knowledgeStats[kp];
-                    const percent = (stat.correct / stat.total * 100).toFixed(0);
-                    const color = percent >= 80 ? '#28a745' : percent >= 60 ? '#ffc107' : '#dc3545';
-                    return `
+        const stat = knowledgeStats[kp];
+        const percent = (stat.correct / stat.total * 100).toFixed(0);
+        const color = percent >= 80 ? '#28a745' : percent >= 60 ? '#ffc107' : '#dc3545';
+        return `
                     <div class="knowledge-item">
                         <div class="knowledge-name">${kp}</div>
                         <div class="knowledge-progress">
@@ -584,7 +598,7 @@ function generateResultHTML(quiz, submission, questions, answers) {
                         <div style="font-size: 12px; color: #999;">${stat.correct}/${stat.total} 题正确</div>
                     </div>
                     `;
-                }).join('')}
+    }).join('')}
             </div>
         </div>
         ` : ''}
@@ -598,9 +612,10 @@ function generateResultHTML(quiz, submission, questions, answers) {
                 </div>
             ` : `
                 ${wrongAnswers.map(answer => {
-                    const question = questions.find(q => q.id === answer.question_id);
-                    return generateAnswerAnalysis(question, answer, true);
-                }).join('')}
+        const question = questions.find(q => q.id === answer.question_id);
+        const questionAI = aiByQuestion[question.question_number] || [];
+        return generateAnswerAnalysis(question, answer, true, questionAI);
+    }).join('')}
             `}
         </div>
 
@@ -608,9 +623,10 @@ function generateResultHTML(quiz, submission, questions, answers) {
         <div class="analysis-section">
             <h2>📋 逐题分析</h2>
             ${answers.map(answer => {
-                const question = questions.find(q => q.id === answer.question_id);
-                return generateAnswerAnalysis(question, answer, false);
-            }).join('')}
+        const question = questions.find(q => q.id === answer.question_id);
+        const questionAI = aiByQuestion[question.question_number] || [];
+        return generateAnswerAnalysis(question, answer, false, questionAI);
+    }).join('')}
         </div>
 
         <!-- 操作按钮 -->
@@ -1063,8 +1079,9 @@ function generateResultHTML(quiz, submission, questions, answers) {
 
 /**
  * 生成单个答案分析
+ * @param {Array} aiInteractions - 该题的 AI 问答记录
  */
-function generateAnswerAnalysis(question, answer, isWrongOnly) {
+function generateAnswerAnalysis(question, answer, isWrongOnly, aiInteractions = []) {
     const isCorrect = answer.is_correct;
     const isPartial = !isCorrect && answer.score_obtained > 0;
 
@@ -1110,8 +1127,8 @@ function generateAnswerAnalysis(question, answer, isWrongOnly) {
                         ${question.question_type === 'multiple_choice' ? '选项（可多选）：' : '选项：'}
                     </div>
                     ${(Array.isArray(question.options) ? question.options : JSON.parse(question.options)).map((opt, i) =>
-                        `<div style="margin: 5px 0;">${String.fromCharCode(65 + i)}. ${escapeHtml(opt)}</div>`
-                    ).join('')}
+        `<div style="margin: 5px 0;">${String.fromCharCode(65 + i)}. ${escapeHtml(opt)}</div>`
+    ).join('')}
                 </div>
             ` : ''}
 
@@ -1142,6 +1159,30 @@ function generateAnswerAnalysis(question, answer, isWrongOnly) {
                 <div class="explanation">
                     <div class="explanation-title">💡 题目解析</div>
                     <div class="explanation-content">${escapeHtml(question.explanation)}</div>
+                </div>
+            ` : ''}
+
+            ${aiInteractions.length > 0 ? `
+                <div class="ai-qa-section" style="
+                    background: #f0f7ff;
+                    border-left: 4px solid #667eea;
+                    padding: 15px;
+                    border-radius: 6px;
+                    margin-top: 15px;
+                ">
+                    <div style="font-size: 14px; font-weight: 600; color: #667eea; margin-bottom: 12px;">
+                        💬 答题时的 AI 问答 (${aiInteractions.length})
+                    </div>
+                    ${aiInteractions.map(ai => `
+                        <div style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #d0e3ff;">
+                            <div style="font-size: 13px; color: #666; margin-bottom: 6px;">
+                                <strong>Q:</strong> ${escapeHtml(ai.user_query)}
+                            </div>
+                            <div style="font-size: 13px; color: #333; background: white; padding: 10px; border-radius: 6px;">
+                                ${ai.ai_response}
+                            </div>
+                        </div>
+                    `).join('')}
                 </div>
             ` : ''}
         </div>

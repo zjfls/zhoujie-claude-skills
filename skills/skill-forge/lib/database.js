@@ -137,7 +137,7 @@ class Database {
      */
     run(sql, params = []) {
         return new Promise((resolve, reject) => {
-            this.db.run(sql, params, function(err) {
+            this.db.run(sql, params, function (err) {
                 if (err) reject(err);
                 else resolve({ lastID: this.lastID, changes: this.changes });
             });
@@ -166,22 +166,90 @@ class Database {
         return this.get(sql, [quiz_id]);
     }
 
+    // ==================== 测验相关操作 ====================
+
     /**
-     * 更新试卷状态
+     * 创建测验（开始答题时调用）
      */
-    async updateQuizStatus(quiz_id, status) {
-        const sql = 'UPDATE quizzes SET status = ? WHERE quiz_id = ?';
-        return this.run(sql, [status, quiz_id]);
+    async createExam(exam_id, quiz_id) {
+        const sql = `
+            INSERT INTO exams (exam_id, quiz_id, status, started_at)
+            VALUES (?, ?, 'in_progress', ?)
+        `;
+        return this.run(sql, [exam_id, quiz_id, new Date().toISOString()]);
     }
 
     /**
-     * 获取所有试卷（用于历史记录）
+     * 获取测验信息
+     */
+    async getExam(exam_id) {
+        const sql = 'SELECT * FROM exams WHERE exam_id = ?';
+        return this.get(sql, [exam_id]);
+    }
+
+    /**
+     * 更新测验状态
+     */
+    async updateExamStatus(exam_id, status) {
+        const sql = 'UPDATE exams SET status = ? WHERE exam_id = ?';
+        return this.run(sql, [status, exam_id]);
+    }
+
+    /**
+     * 删除测验（放弃答题时调用）
+     */
+    async deleteExam(exam_id) {
+        // 先删除关联的 AI 问答记录
+        await this.run('DELETE FROM ai_interactions WHERE exam_id = ?', [exam_id]);
+        // 再删除测验记录
+        await this.run('DELETE FROM exams WHERE exam_id = ?', [exam_id]);
+        console.log(`✓ 测验 ${exam_id} 已删除`);
+    }
+
+    /**
+     * 获取试卷的所有测验
+     */
+    async getExamsByQuiz(quiz_id) {
+        const sql = 'SELECT * FROM exams WHERE quiz_id = ? ORDER BY started_at DESC';
+        return this.all(sql, [quiz_id]);
+    }
+
+    /**
+     * 获取某个试卷的进行中测验
+     */
+    async getInProgressExam(quiz_id) {
+        const sql = `SELECT * FROM exams WHERE quiz_id = ? AND status = 'in_progress' ORDER BY started_at DESC LIMIT 1`;
+        return this.get(sql, [quiz_id]);
+    }
+
+    /**
+     * 获取所有测验（用于 Dashboard）
+     */
+    async getAllExams() {
+        const sql = `
+            SELECT e.*, q.topic, q.difficulty, q.question_count,
+                   s.obtained_score, s.total_score, s.submitted_at, s.pass_status
+            FROM exams e
+            JOIN quizzes q ON e.quiz_id = q.quiz_id
+            LEFT JOIN submissions s ON e.exam_id = s.exam_id
+            ORDER BY e.started_at DESC
+        `;
+        return this.all(sql);
+    }
+
+    /**
+     * 获取所有试卷（用于试卷列表）
      */
     async getAllQuizzes() {
         const sql = `
-            SELECT q.*, s.obtained_score, s.total_score, s.submitted_at, s.pass_status
+            SELECT q.*, 
+                   (SELECT COUNT(*) FROM submissions s 
+                    JOIN exams e ON s.exam_id = e.exam_id 
+                    WHERE e.quiz_id = q.quiz_id) as submission_count,
+                   (SELECT e.status FROM exams e 
+                    WHERE e.quiz_id = q.quiz_id 
+                    ORDER BY e.started_at DESC LIMIT 1) as latest_exam_status
             FROM quizzes q
-            LEFT JOIN submissions s ON q.quiz_id = s.quiz_id
             ORDER BY q.created_at DESC
         `;
         return this.all(sql);
@@ -317,12 +385,12 @@ class Database {
      * 创建提交记录
      */
     async createSubmission(submissionData) {
-        const { submission_id, quiz_id, total_score, obtained_score, time_spent, pass_status } = submissionData;
+        const { submission_id, exam_id, quiz_id, total_score, obtained_score, time_spent, pass_status } = submissionData;
         const sql = `
-            INSERT INTO submissions (submission_id, quiz_id, submitted_at, total_score, obtained_score, time_spent, pass_status)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO submissions (submission_id, exam_id, quiz_id, submitted_at, total_score, obtained_score, time_spent, pass_status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `;
-        return this.run(sql, [submission_id, quiz_id, new Date().toISOString(), total_score, obtained_score, time_spent, pass_status]);
+        return this.run(sql, [submission_id, exam_id, quiz_id, new Date().toISOString(), total_score, obtained_score, time_spent, pass_status]);
     }
 
     /**
@@ -379,24 +447,24 @@ class Database {
     /**
      * 保存AI对话记录
      */
-    async saveAIInteraction(quiz_id, question_number, user_query, ai_response) {
+    async saveAIInteraction(exam_id, quiz_id, question_number, user_query, ai_response) {
         const sql = `
-            INSERT INTO ai_interactions (quiz_id, question_number, user_query, ai_response, created_at)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO ai_interactions (exam_id, quiz_id, question_number, user_query, ai_response, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
         `;
-        return this.run(sql, [quiz_id, question_number, user_query, ai_response, new Date().toISOString()]);
+        return this.run(sql, [exam_id, quiz_id, question_number, user_query, ai_response, new Date().toISOString()]);
     }
 
     /**
-     * 获取某题目的AI对话历史
+     * 获取某题目的AI对话历史（指定测验）
      */
-    async getAIInteractions(quiz_id, question_number) {
+    async getAIInteractions(exam_id, question_number) {
         const sql = `
             SELECT * FROM ai_interactions
-            WHERE quiz_id = ? AND question_number = ?
+            WHERE exam_id = ? AND question_number = ?
             ORDER BY created_at DESC
         `;
-        return this.all(sql, [quiz_id, question_number]);
+        return this.all(sql, [exam_id, question_number]);
     }
 
     // ==================== 统计相关操作 ====================
@@ -463,6 +531,55 @@ class Database {
             options: row.options ? JSON.parse(row.options) : null,
             knowledge_points: JSON.parse(row.knowledge_points || '[]')
         }));
+    }
+
+    /**
+     * 删除试卷（级联删除所有关联数据）
+     */
+    async deleteQuiz(quiz_id) {
+        // 1. 获取所有 exam_id
+        const exams = await this.all(
+            'SELECT exam_id FROM exams WHERE quiz_id = ?',
+            [quiz_id]
+        );
+
+        // 2. 对每个 exam，删除关联的 answers 和 submissions
+        for (const exam of exams) {
+            const submissions = await this.all(
+                'SELECT submission_id FROM submissions WHERE exam_id = ?',
+                [exam.exam_id]
+            );
+            for (const sub of submissions) {
+                await this.run('DELETE FROM answers WHERE submission_id = ?', [sub.submission_id]);
+            }
+            await this.run('DELETE FROM submissions WHERE exam_id = ?', [exam.exam_id]);
+        }
+
+        // 3. 删除 ai_interactions
+        await this.run('DELETE FROM ai_interactions WHERE quiz_id = ?', [quiz_id]);
+
+        // 4. 删除 exams
+        await this.run('DELETE FROM exams WHERE quiz_id = ?', [quiz_id]);
+
+        // 5. 删除 questions
+        await this.run('DELETE FROM questions WHERE quiz_id = ?', [quiz_id]);
+
+        // 6. 删除 quizzes
+        await this.run('DELETE FROM quizzes WHERE quiz_id = ?', [quiz_id]);
+
+        console.log(`✓ 试卷 ${quiz_id} 及其所有关联数据已删除`);
+    }
+
+    /**
+     * 获取测验的所有AI问答记录
+     */
+    async getAllAIInteractionsForExam(exam_id) {
+        const sql = `
+            SELECT * FROM ai_interactions
+            WHERE exam_id = ?
+            ORDER BY question_number ASC, created_at ASC
+        `;
+        return this.all(sql, [exam_id]);
     }
 }
 

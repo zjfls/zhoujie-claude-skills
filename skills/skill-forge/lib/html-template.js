@@ -256,6 +256,55 @@ function generateQuizHTML(quiz, questions) {
             font-size: 12px;
             font-weight: 600;
             margin-left: 8px;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+
+        .source-badge:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+
+        .source-badge .source-tooltip {
+            display: none;
+            position: absolute;
+            top: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            color: white;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 400;
+            white-space: nowrap;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        .source-badge .source-tooltip::before {
+            content: '';
+            position: absolute;
+            top: -6px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-bottom: 6px solid #333;
+        }
+
+        .source-badge:hover .source-tooltip {
+            display: block;
+        }
+
+        .source-tooltip a {
+            color: #7dd3fc;
+            text-decoration: none;
+        }
+
+        .source-tooltip a:hover {
+            text-decoration: underline;
         }
 
         .source-badge.interview {
@@ -279,8 +328,8 @@ function generateQuizHTML(quiz, questions) {
         }
 
         .source-badge.ai_generated {
-            background: #fce4ec;
-            color: #c2185b;
+            background: #f5f5f5;
+            color: #757575;
         }
 
         .question-content {
@@ -559,6 +608,18 @@ function generateQuizHTML(quiz, questions) {
 </html>`;
 }
 
+// 题目来源标签映射（全局函数）
+function getSourceLabel(sourceType) {
+    const labels = {
+        'interview': '面试题',
+        'exam': '考试题',
+        'official_doc': '官方文档',
+        'community': '社区题库',
+        'ai_generated': 'AI生成'
+    };
+    return labels[sourceType] || sourceType;
+}
+
 /**
  * 生成单个题目卡片
  */
@@ -617,9 +678,13 @@ function generateQuestionCard(question) {
                 <div>
                     <span class="question-number">题目 ${question.question_number}</span>
                     <span style="color: #999; margin-left: 10px;">[${typeMap[question.question_type]}]</span>
-                    ${question.source_type && question.source_type !== 'ai_generated' ? `
-                        <span class="source-badge ${question.source_type}" title="${question.source_name || ''}">
+                    ${question.source_type ? `
+                        <span class="source-badge ${question.source_type}">
                             ${getSourceLabel(question.source_type)}
+                            <span class="source-tooltip">
+                                ${question.source_name ? `<strong>${question.source_name}</strong><br>` : ''}
+                                ${question.source_url ? `<a href="${question.source_url}" target="_blank">🔗 查看原题</a>` : '来源：' + getSourceLabel(question.source_type)}
+                            </span>
                         </span>
                     ` : ''}
                     <div class="knowledge-tags">

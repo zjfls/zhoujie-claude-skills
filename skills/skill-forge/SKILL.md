@@ -29,7 +29,7 @@ description: 智能学习测验系统。根据学习主题和难度生成定制�
 **重要**：数据库文件位于 `~/.skill-forge/skill-forge.db`，使用以下schema：
 
 ```sql
--- 试卷表
+-- 试卷模板表
 CREATE TABLE IF NOT EXISTS quizzes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     quiz_id TEXT UNIQUE NOT NULL,           -- 唯一标识：<timestamp>_<topic>
@@ -37,8 +37,17 @@ CREATE TABLE IF NOT EXISTS quizzes (
     topic_detail TEXT,                       -- 详细主题说明
     difficulty TEXT NOT NULL,                -- 难度：beginner/intermediate/advanced
     question_count INTEGER NOT NULL,         -- 题目数量
-    created_at TEXT NOT NULL,                -- 创建时间（ISO格式）
-    status TEXT DEFAULT 'created'            -- 状态：created/in_progress/completed
+    created_at TEXT NOT NULL                 -- 创建时间（ISO格式）
+);
+
+-- 考试实例表（新增）
+CREATE TABLE IF NOT EXISTS exams (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    exam_id TEXT UNIQUE NOT NULL,            -- 考试唯一标识：<quiz_id>_<timestamp>
+    quiz_id TEXT NOT NULL,                   -- 关联试卷ID
+    status TEXT DEFAULT 'in_progress',       -- 状态：in_progress/completed/abandoned
+    started_at TEXT NOT NULL,                -- 开始时间
+    FOREIGN KEY (quiz_id) REFERENCES quizzes(quiz_id) ON DELETE CASCADE
 );
 
 -- 题目表
@@ -53,20 +62,22 @@ CREATE TABLE IF NOT EXISTS questions (
     score INTEGER NOT NULL,                  -- 分值
     knowledge_points TEXT,                   -- 知识点（JSON数组）
     explanation TEXT,                        -- 题目解析
-    FOREIGN KEY (quiz_id) REFERENCES quizzes(quiz_id)
+    FOREIGN KEY (quiz_id) REFERENCES quizzes(quiz_id) ON DELETE CASCADE
 );
 
 -- 提交记录表
 CREATE TABLE IF NOT EXISTS submissions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    submission_id TEXT UNIQUE NOT NULL,      -- 提交ID：<quiz_id>_<timestamp>
-    quiz_id TEXT NOT NULL,                   -- 关联试卷ID
+    submission_id TEXT UNIQUE NOT NULL,      -- 提交ID：<exam_id>_<timestamp>
+    exam_id TEXT NOT NULL,                   -- 关联考试ID
+    quiz_id TEXT NOT NULL,                   -- 关联试卷ID（冗余用于快速查询）
     submitted_at TEXT NOT NULL,              -- 提交时间（ISO格式）
     total_score INTEGER NOT NULL,            -- 总分
     obtained_score REAL NOT NULL,            -- 得分
     time_spent INTEGER,                      -- 答题用时（秒）
     pass_status TEXT,                        -- 通过状态：pass/fail
-    FOREIGN KEY (quiz_id) REFERENCES quizzes(quiz_id)
+    FOREIGN KEY (exam_id) REFERENCES exams(exam_id) ON DELETE CASCADE,
+    FOREIGN KEY (quiz_id) REFERENCES quizzes(quiz_id) ON DELETE CASCADE
 );
 
 -- 用户答案表
@@ -78,27 +89,31 @@ CREATE TABLE IF NOT EXISTS answers (
     is_correct INTEGER,                      -- 是否正确：1/0
     score_obtained REAL,                     -- 获得分数
     ai_feedback TEXT,                        -- AI评分反馈
-    FOREIGN KEY (submission_id) REFERENCES submissions(submission_id),
+    FOREIGN KEY (submission_id) REFERENCES submissions(submission_id) ON DELETE CASCADE,
     FOREIGN KEY (question_id) REFERENCES questions(id)
 );
 
 -- AI对话记录表
 CREATE TABLE IF NOT EXISTS ai_interactions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    quiz_id TEXT NOT NULL,                   -- 关联试卷ID
+    exam_id TEXT NOT NULL,                   -- 关联考试ID
+    quiz_id TEXT NOT NULL,                   -- 关联试卷ID（冗余）
     question_number INTEGER NOT NULL,        -- 关联题号
     user_query TEXT NOT NULL,                -- 用户提问
     ai_response TEXT NOT NULL,               -- AI回答
     created_at TEXT NOT NULL,                -- 提问时间（ISO格式）
-    FOREIGN KEY (quiz_id) REFERENCES quizzes(quiz_id)
+    FOREIGN KEY (exam_id) REFERENCES exams(exam_id) ON DELETE CASCADE,
+    FOREIGN KEY (quiz_id) REFERENCES quizzes(quiz_id) ON DELETE CASCADE
 );
 
 -- 创建索引
 CREATE INDEX IF NOT EXISTS idx_quizzes_quiz_id ON quizzes(quiz_id);
+CREATE INDEX IF NOT EXISTS idx_exams_quiz_id ON exams(quiz_id);
 CREATE INDEX IF NOT EXISTS idx_questions_quiz_id ON questions(quiz_id);
+CREATE INDEX IF NOT EXISTS idx_submissions_exam_id ON submissions(exam_id);
 CREATE INDEX IF NOT EXISTS idx_submissions_quiz_id ON submissions(quiz_id);
 CREATE INDEX IF NOT EXISTS idx_answers_submission_id ON answers(submission_id);
-CREATE INDEX IF NOT EXISTS idx_ai_interactions_quiz_id ON ai_interactions(quiz_id);
+CREATE INDEX IF NOT EXISTS idx_ai_interactions_exam_id ON ai_interactions(exam_id);
 ```
 
 ## ⚙️ 配置系统
@@ -227,12 +242,46 @@ vi ~/.skill-forge/config.json
 
 **详细步骤**：
 
-1. **收集参数**（必须询问用户）：
-   - 学习主题（topic）
-   - 主题详细说明（topic_detail）
+1. **收集参数**（⚠️ 必须主动询问，不可跳过！）：
+
+   **重要原则**：除非用户明确说「快速生成」「直接生成」「用默认设置」，否则必须逐项询问以下所有参数。
+   
+   **询问模板**（发送给用户）：
+   ```
+   📚 在生成试卷前，请回答以下问题（或输入"快速生成"使用默认设置）：
+   
+   1️⃣ **学习主题**：您想练习什么？（如：JavaScript 闭包、Python 装饰器）
+   
+   2️⃣ **难度等级**：
+      - 初级（基础概念）
+      - 中级（应用场景）
+      - 高级（底层原理 + 边界情况）
+   
+   3️⃣ **题目数量**：您希望多少道题？（默认 10 题，建议 5-20）
+   
+   4️⃣ **题型分布**：
+      - 选择题为主（适合快速检测）
+      - 问答题为主（适合深度理解）
+      - 代码题为主（适合实战练习）
+      - 混合（选择 + 问答 + 代码）
+   
+   5️⃣ **题目来源**：
+      - 🌐 网络搜索真题（面试题/考试题）
+      - 📋 我提供资料（粘贴或链接）
+      - 🤖 AI 直接生成（速度最快）
+      - 🔄 混合模式（推荐：先搜索，不足时 AI 补充）
+   
+   请逐项回答，或直接描述您的需求：
+   ```
+   
+   **收集的参数**：
+   - 学习主题（topic）- 必填
+   - 主题详细说明（topic_detail）- 可选
    - 难度等级（difficulty）：beginner/intermediate/advanced
-   - 题目数量（question_count）：建议5-20题
-   - 题型分布（可选）：choice/essay/code的比例
+   - 题目数量（question_count）：默认 10，范围 5-20
+   - 题型分布（question_types）：choice/essay/code 的比例
+   - 题目来源（source_mode）：search/user_provided/ai_generated/mixed
+
 
 2. **生成quiz_id**：
    ```javascript
@@ -264,6 +313,46 @@ vi ~/.skill-forge/config.json
    2. 如果结果不足 → 等待1秒 → brave_web_search("JavaScript closure interview questions")
    3. 如果仍不足 → 等待1秒 → brave_web_search("JavaScript 闭包 笔试题 考试题")
    ```
+
+   **题目来源策略（重要！必须遵循）**：
+
+   生成题目时，必须尝试以下来源策略，并正确填充来源字段：
+
+   **策略 1：网络搜索真题（优先）**
+   ```
+   1. 使用 search_web 搜索「{主题} 面试题」「{主题} 考试真题」「{主题} 练习题」
+   2. 从搜索结果中提取高质量题目
+   3. 填充来源字段：
+      - source_type: "interview" / "exam" / "community"
+      - source_url: 题目原始链接
+      - source_name: 来源名称（如 "LeetCode"、"牛客网"、"力扣"）
+   ```
+
+   **策略 2：询问用户（当网络搜索不足时）**
+   ```
+   🔍 我在网络上找到了部分题目，但可能不够完整。您有以下选择：
+   
+   1. 📝 使用 AI 生成补充题目（标记为 AI 生成）
+   2. 📋 提供您自己的题目资料（粘贴文本或提供链接）
+   3. 🔗 指定特定的题目来源网站（如某本书、某个题库）
+   
+   请选择或直接提供资料：
+   ```
+
+   **策略 3：AI 生成补充（兜底）**
+   ```
+   - 根据主题生成高质量题目
+   - 标记为 source_type = "ai_generated"
+   - source_url 和 source_name 留空
+   ```
+
+   **来源字段说明**：
+   | 字段 | 类型 | 说明 | 示例值 |
+   |------|------|------|--------|
+   | source_type | TEXT | 来源类型 | interview, exam, official_doc, community, ai_generated |
+   | source_url | TEXT | 原题链接 | https://leetcode.cn/problems/xxx |
+   | source_name | TEXT | 来源名称 | LeetCode、牛客网、《JavaScript高级程序设计》 |
+
 
    **题目去重机制（三层策略）**：
 

@@ -370,6 +370,9 @@ function generateQuizSearchHTML(query = '', results = []) {
                             <button class="btn btn-secondary" onclick="viewQuestions('${quiz.quiz_id}')">
                                 📋 查看题目
                             </button>
+                            <button class="btn" onclick="deleteQuiz('${quiz.quiz_id}')" style="background: #dc3545; color: white;">
+                                🗑️ 删除试卷
+                            </button>
                         </div>
                     </div>
                 `).join('') : `
@@ -402,6 +405,34 @@ function generateQuizSearchHTML(query = '', results = []) {
 
         function viewQuestions(quizId) {
             window.open('/quizzes/' + quizId + '/quiz.html', '_blank');
+        }
+
+        async function deleteQuiz(quizId) {
+            if (!confirm('确定要删除这个试卷吗？\\n\\n⚠️ 警告：这将删除试卷、所有题目、所有考试记录和 AI 问答历史！\\n此操作不可撤销！')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/delete-quiz', {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ quiz_id: quizId })
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    alert('试卷已删除');
+                    // 刷新页面
+                    window.location.reload();
+                } else {
+                    alert('删除失败：' + (data.error || '未知错误'));
+                }
+            } catch (err) {
+                console.error('删除试卷失败:', err);
+                alert('删除试卷失败：' + err.message);
+            }
         }
     </script>
 </body>

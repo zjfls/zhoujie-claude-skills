@@ -76,8 +76,8 @@ const server = http.createServer(async (req, res) => {
         // Dashboard首页
         if (pathname === '/' || pathname === '/dashboard') {
             try {
-                const quizzes = await db.getAllQuizzes();
-                const dashboardHTML = generateDashboardHTML(quizzes);
+                const exams = await db.getAllExams();
+                const dashboardHTML = generateDashboardHTML(exams);
                 res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
                 res.end(dashboardHTML);
             } catch (err) {
@@ -212,7 +212,7 @@ const server = http.createServer(async (req, res) => {
 
         // 试卷和历史文件
         if (pathname.startsWith('/quizzes/') || pathname.startsWith('/history/')) {
-            const filePath = path.join(DATA_DIR, pathname);
+            const filePath = path.join(DATA_DIR, decodeURIComponent(pathname));
 
             fs.readFile(filePath, (err, data) => {
                 if (err) {
@@ -244,8 +244,64 @@ const server = http.createServer(async (req, res) => {
             const quiz = await db.getQuiz(quiz_id);
             const questions = await db.getQuestions(quiz_id);
 
+            // 检查是否有进行中的测验
+            const inProgressExam = await db.getInProgressExam(quiz_id);
+
             res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ quiz, questions }));
+            res.end(JSON.stringify({ quiz, questions, inProgressExam }));
+            return;
+        }
+
+        // 开始测验（创建 exam 记录）
+        if (pathname === '/api/start-exam' && req.method === 'POST') {
+            let body = '';
+            req.on('data', chunk => {
+                body += chunk.toString();
+            });
+
+            req.on('end', async () => {
+                try {
+                    const data = JSON.parse(body);
+                    const { quiz_id } = data;
+
+                    if (!quiz_id) {
+                        res.writeHead(400, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ error: 'Missing quiz_id' }));
+                        return;
+                    }
+
+                    // 检查是否已有进行中的测验
+                    const existingExam = await db.getInProgressExam(quiz_id);
+                    if (existingExam) {
+                        res.writeHead(200, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({
+                            exam_id: existingExam.exam_id,
+                            isExisting: true,
+                            message: '继续已有测验'
+                        }));
+                        return;
+                    }
+
+                    // 创建新测验
+                    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
+                    const exam_id = `${quiz_id}_${timestamp}`;
+
+                    await db.createExam(exam_id, quiz_id);
+                    console.log(`✓ 创建测验: ${exam_id}`);
+
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({
+                        exam_id,
+                        isExisting: false,
+                        message: '新测验已创建'
+                    }));
+
+                } catch (err) {
+                    console.error('创建测验失败:', err);
+                    res.writeHead(500, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: err.message }));
+                }
+            });
             return;
         }
 
@@ -259,16 +315,16 @@ const server = http.createServer(async (req, res) => {
             req.on('end', async () => {
                 try {
                     const data = JSON.parse(body);
-                    const { quiz_id, question_number, user_query } = data;
+                    const { exam_id, quiz_id, question_number, user_query } = data;
 
-                    if (!quiz_id || !question_number || !user_query) {
+                    if (!exam_id || !quiz_id || !question_number || !user_query) {
                         res.writeHead(400, { 'Content-Type': 'application/json' });
                         res.end(JSON.stringify({ error: 'Missing required fields' }));
                         return;
                     }
 
                     // 生成请求ID
-                    const requestId = `${quiz_id}_q${question_number}_${Date.now()}`;
+                    const requestId = `${exam_id}_q${question_number}_${Date.now()}`;
 
                     // 设置初始状态
                     aiRequestsMap.set(requestId, {
@@ -281,7 +337,7 @@ const server = http.createServer(async (req, res) => {
                     res.end(JSON.stringify({ requestId, message: 'AI请求已提交' }));
 
                     // 异步处理AI请求
-                    handleAIRequest(requestId, quiz_id, question_number, user_query);
+                    handleAIRequest(requestId, exam_id, quiz_id, question_number, user_query);
 
                 } catch (err) {
                     console.error('解析请求失败:', err);
@@ -323,9 +379,9 @@ const server = http.createServer(async (req, res) => {
             req.on('end', async () => {
                 try {
                     const data = JSON.parse(body);
-                    const { quiz_id, answers, time_spent } = data;
+                    const { exam_id, quiz_id, answers, time_spent } = data;
 
-                    if (!quiz_id || !answers) {
+                    if (!exam_id || !quiz_id || !answers) {
                         res.writeHead(400, { 'Content-Type': 'application/json' });
                         res.end(JSON.stringify({ error: 'Missing required fields' }));
                         return;
@@ -344,10 +400,11 @@ const server = http.createServer(async (req, res) => {
 
                     // 保存提交记录
                     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
-                    const submission_id = `${quiz_id}_${timestamp}`;
+                    const submission_id = `${exam_id}_${timestamp}`;
 
                     await db.createSubmission({
                         submission_id,
+                        exam_id,
                         quiz_id,
                         total_score,
                         obtained_score,
@@ -367,13 +424,14 @@ const server = http.createServer(async (req, res) => {
 
                     await db.insertAnswers(answerRecords);
 
-                    // 更新试卷状态
-                    await db.updateQuizStatus(quiz_id, 'completed');
+                    // 更新测验状态为已完成
+                    await db.updateExamStatus(exam_id, 'completed');
 
                     // 生成成绩页面HTML
                     const quiz = await db.getQuiz(quiz_id);
                     const submission = {
                         submission_id,
+                        exam_id,
                         quiz_id,
                         submitted_at: new Date().toISOString(),
                         total_score,
@@ -383,7 +441,10 @@ const server = http.createServer(async (req, res) => {
                     };
                     const answersWithDetails = await db.getAnswers(submission_id);
 
-                    const resultHTML = generateResultHTML(quiz, submission, questions, answersWithDetails);
+                    // 获取答题过程中的 AI 问答记录
+                    const aiInteractions = await db.getAllAIInteractionsForExam(exam_id);
+
+                    const resultHTML = generateResultHTML(quiz, submission, questions, answersWithDetails, aiInteractions);
                     const resultPath = path.join(QUIZZES_DIR, quiz_id, 'result.html');
                     fs.writeFileSync(resultPath, resultHTML, 'utf8');
                     console.log(`✓ 成绩页面已生成: ${resultPath}`);
@@ -399,6 +460,63 @@ const server = http.createServer(async (req, res) => {
 
                 } catch (err) {
                     console.error('提交失败:', err);
+                    res.writeHead(500, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: err.message }));
+                }
+            });
+            return;
+            return;
+        }
+
+        // 生成历史报告
+        if (pathname === '/api/generate-history-report' && req.method === 'POST') {
+            try {
+                console.log('正在生成历史报告...');
+                const exams = await db.getAllExams();
+                const historyDir = path.join(DATA_DIR, 'history');
+                if (!fs.existsSync(historyDir)) fs.mkdirSync(historyDir, { recursive: true });
+
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
+                const filename = `report_${timestamp}.html`;
+                const filePath = path.join(historyDir, filename);
+
+                const html = generateSimpleHistoryHTML(exams);
+                fs.writeFileSync(filePath, html);
+
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ reportUrl: `/history/${filename}` }));
+            } catch (err) {
+                console.error('生成历史报告失败:', err);
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: err.message }));
+            }
+            return;
+        }
+
+        // 删除测验（放弃答题）
+        if (pathname === '/api/delete-exam' && req.method === 'DELETE') {
+            let body = '';
+            req.on('data', chunk => {
+                body += chunk.toString();
+            });
+
+            req.on('end', async () => {
+                try {
+                    const data = JSON.parse(body);
+                    const { exam_id } = data;
+
+                    if (!exam_id) {
+                        res.writeHead(400, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ error: 'Missing exam_id' }));
+                        return;
+                    }
+
+                    await db.deleteExam(exam_id);
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ success: true, message: '测验已删除' }));
+
+                } catch (err) {
+                    console.error('删除测验失败:', err);
                     res.writeHead(500, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({ error: err.message }));
                 }
@@ -599,6 +717,48 @@ const server = http.createServer(async (req, res) => {
             return;
         }
 
+        // 删除试卷（级联删除所有关联数据）
+        if (pathname === '/api/delete-quiz' && req.method === 'DELETE') {
+            let body = '';
+            req.on('data', chunk => {
+                body += chunk.toString();
+            });
+
+            req.on('end', async () => {
+                try {
+                    const data = JSON.parse(body);
+                    const { quiz_id } = data;
+
+                    if (!quiz_id) {
+                        res.writeHead(400, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ error: 'Missing quiz_id' }));
+                        return;
+                    }
+
+                    console.log(`正在删除试卷: ${quiz_id}`);
+
+                    // 1. 删除数据库记录
+                    await db.deleteQuiz(quiz_id);
+
+                    // 2. 删除文件目录
+                    const quizDir = path.join(QUIZZES_DIR, quiz_id);
+                    if (fs.existsSync(quizDir)) {
+                        fs.rmSync(quizDir, { recursive: true, force: true });
+                        console.log(`✓ 已删除目录: ${quizDir}`);
+                    }
+
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ success: true, message: '试卷已删除' }));
+
+                } catch (err) {
+                    console.error('删除试卷失败:', err);
+                    res.writeHead(500, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: err.message }));
+                }
+            });
+            return;
+        }
+
         // 404
         res.writeHead(404);
         res.end('Not found');
@@ -613,7 +773,7 @@ const server = http.createServer(async (req, res) => {
 /**
  * 异步处理AI请求
  */
-async function handleAIRequest(requestId, quiz_id, question_number, user_query) {
+async function handleAIRequest(requestId, exam_id, quiz_id, question_number, user_query) {
     try {
         // 获取题目信息
         const question = await db.getQuestion(quiz_id, question_number);
@@ -634,7 +794,7 @@ async function handleAIRequest(requestId, quiz_id, question_number, user_query) 
 题目 #${question_number}：
 ${question.content}
 
-${question.options ? `选项：\n${JSON.parse(question.options).map((opt, i) => `${String.fromCharCode(65 + i)}. ${opt}`).join('\n')}` : ''}
+${question.options ? `选项：\n${question.options.map((opt, i) => `${String.fromCharCode(65 + i)}. ${opt}`).join('\n')}` : ''}
 
 知识点：${question.knowledge_points.join('、')}
 
@@ -679,6 +839,16 @@ ${question.options ? `选项：\n${JSON.parse(question.options).map((opt, i) => 
             errorOutput += data.toString();
         });
 
+        // 处理 spawn 启动失败（如 CLI 不存在）
+        claudeProcess.on('error', (err) => {
+            clearTimeout(timeoutId);
+            console.error('Claude CLI 启动失败:', err);
+            aiRequestsMap.set(requestId, {
+                status: 'error',
+                error: `Claude CLI 启动失败: ${err.message}。请确认已安装 claude 命令行工具。`
+            });
+        });
+
         claudeProcess.on('close', async (code) => {
             clearTimeout(timeoutId);
 
@@ -703,7 +873,7 @@ ${question.options ? `选项：\n${JSON.parse(question.options).map((opt, i) => 
             let htmlContent = output.trim();
 
             // 保存到数据库
-            await db.saveAIInteraction(quiz_id, question_number, user_query, htmlContent);
+            await db.saveAIInteraction(exam_id, quiz_id, question_number, user_query, htmlContent);
 
             // 更新状态
             aiRequestsMap.set(requestId, {
@@ -855,6 +1025,7 @@ async function gradeWithAI(question, userAnswer) {
         claudeProcess.stdin.end();
     });
 }
+
 
 /**
  * 使用AI生成个性化学习计划
@@ -1068,6 +1239,73 @@ ${wd.ai_feedback ? `**AI反馈**：${wd.ai_feedback}` : ''}
         claudeProcess.stdin.write(aiPrompt);
         claudeProcess.stdin.end();
     });
+}
+
+
+/**
+ * 生成历史报告HTML (简化版)
+ */
+function generateSimpleHistoryHTML(exams) {
+    const completedExams = exams.filter(e => e.status === 'completed');
+
+    // 基础统计
+    const totalExams = exams.length;
+    const totalCompleted = completedExams.length;
+    const totalScore = completedExams.reduce((sum, e) => sum + (e.obtained_score || 0), 0);
+    const avgScore = totalCompleted > 0 ? (totalScore / totalCompleted).toFixed(1) : 0;
+
+    // 生成列表行
+    const rows = completedExams.sort((a, b) => new Date(b.started_at) - new Date(a.started_at)).map(e => `
+        <tr>
+            <td>${new Date(e.started_at).toLocaleString('zh-CN')}</td>
+            <td>${e.topic}</td>
+            <td><span class="badge ${e.difficulty}">${e.difficulty}</span></td>
+            <td>${e.obtained_score || 0} / ${e.total_score || 0}</td>
+            <td>${e.pass_status === 'pass' ? '<span class="status-pass">合格</span>' : '<span class="status-fail">不合格</span>'}</td>
+        </tr>
+    `).join('');
+
+    return `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skill Forge - 历史报告</title>
+    <style>
+        body { font-family: system-ui, sans-serif; background: #f5f7fa; color: #333; line-height: 1.6; margin: 0; padding: 40px; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #2c3e50; margin-bottom: 30px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 40px; }
+        .stat-card { background: #f8f9fa; padding: 20px; border-radius: 8px; text-align: center; }
+        .stat-value { font-size: 32px; font-weight: bold; color: #3498db; }
+        .stat-label { color: #7f8c8d; font-size: 14px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; }
+        th { background: #f8f9fa; font-weight: 600; }
+        .badge { padding: 4px 8px; border-radius: 12px; font-size: 12px; text-transform: uppercase; }
+        .beginner { background: #e1f5fe; color: #0288d1; }
+        .intermediate { background: #fff3e0; color: #f57c00; }
+        .advanced { background: #ffebee; color: #d32f2f; }
+        .status-pass { color: #27ae60; font-weight: bold; }
+        .status-fail { color: #c0392b; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 历史学习报告</h1>
+        <div class="stats-grid">
+            <div class="stat-card"><div class="stat-value">${totalExams}</div><div class="stat-label">总测验次数</div></div>
+            <div class="stat-card"><div class="stat-value">${totalCompleted}</div><div class="stat-label">已完成测验</div></div>
+            <div class="stat-card"><div class="stat-value">${avgScore}</div><div class="stat-label">平均得分</div></div>
+        </div>
+        <h2>详细记录</h2>
+        <table>
+            <thead><tr><th>时间</th><th>主题</th><th>难度</th><th>得分</th><th>状态</th></tr></thead>
+            <tbody>${rows}</tbody>
+        </table>
+    </div>
+</body>
+</html>`;
 }
 
 // 启动服务器
