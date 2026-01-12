@@ -1,0 +1,648 @@
+<div class="max-w-4xl mx-auto p-6 bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg shadow-lg">
+  <!-- 标题 -->
+  <div class="mb-8 text-center">
+    <h1 class="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-blue-600 mb-2">
+      Agent 类型深度解析
+    </h1>
+    <p class="text-gray-600">多步骤复杂任务处理的核心理念</p>
+  </div>
+
+  <!-- 1. 核心考点 -->
+  <div class="mb-6 p-5 bg-white rounded-lg shadow-md border-l-4 border-purple-500">
+    <h2 class="text-2xl font-bold text-purple-700 mb-3 flex items-center">
+      <span class="mr-2">🎯</span> 核心考点
+    </h2>
+    <div class="text-gray-700 leading-relaxed space-y-3">
+      <p class="font-semibold text-lg">本题考察 <span class="text-purple-600">Agent 智能层级结构</span>与<span class="text-blue-600">任务规划能力</span>的核心差异。</p>
+      <div class="bg-purple-50 p-4 rounded-md">
+        <p><strong>底层原理：</strong></p>
+        <ul class="list-disc list-inside space-y-2 mt-2">
+          <li><strong>反应式 vs 规划式</strong>：Agent 的智能水平取决于是否具备前瞻性规划能力</li>
+          <li><strong>状态空间搜索</strong>：复杂任务需要在多个可能的行动序列中寻找最优路径</li>
+          <li><strong>目标驱动机制</strong>：目标导向 Agent 能够将最终目标分解为子目标,形成行动链</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. 逻辑推导 -->
+  <div class="mb-6 p-5 bg-white rounded-lg shadow-md border-l-4 border-blue-500">
+    <h2 class="text-2xl font-bold text-blue-700 mb-3 flex items-center">
+      <span class="mr-2">🧠</span> 逻辑推导
+    </h2>
+
+    <!-- 为什么 C 正确 -->
+    <div class="mb-4">
+      <h3 class="text-xl font-semibold text-green-600 mb-2">✅ 为什么选择 C (Goal-based Agent)?</h3>
+      <div class="bg-green-50 p-4 rounded-md space-y-2 text-gray-800">
+        <p><strong>核心能力：</strong></p>
+        <ol class="list-decimal list-inside space-y-2 ml-4">
+          <li><strong>目标描述</strong>：能够理解并存储"期望达到的状态"</li>
+          <li><strong>搜索与规划</strong>：通过搜索算法(如A*、BFS)在状态空间中寻找从当前状态到目标状态的路径</li>
+          <li><strong>行动序列</strong>：生成一系列有序的行动,每个行动都使系统向目标靠近</li>
+          <li><strong>灵活性</strong>：面对多种可能的路径,能评估并选择最优方案</li>
+        </ol>
+        <div class="mt-3 p-3 bg-white rounded border-l-4 border-green-500">
+          <p class="text-sm"><strong>示例场景：</strong>导航系统需要规划从 A 到 B 的路线,中途可能需要加油、避开拥堵,这需要多步规划。</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 为什么其他选项错误 -->
+    <div class="space-y-3">
+      <h3 class="text-xl font-semibold text-red-600 mb-2">❌ 为什么其他选项不适合?</h3>
+
+      <div class="bg-red-50 p-4 rounded-md">
+        <p class="font-semibold text-red-700">A. Reflex Agent (反射型 Agent) - 您的选择</p>
+        <ul class="list-disc list-inside mt-2 space-y-1 text-gray-700 ml-4">
+          <li><strong>工作机制</strong>：条件-动作规则 (if-then),感知到刺激立即做出反应</li>
+          <li><strong>局限性</strong>：<span class="text-red-600">没有记忆,没有规划能力</span>,无法处理需要多步推理的任务</li>
+          <li><strong>适用场景</strong>：温控器、自动门、简单的游戏 NPC</li>
+          <li class="text-red-600 font-semibold">为什么不行：面对"订机票→订酒店→租车"这样的序列任务,反射型 Agent 无法理解任务间的依赖关系</li>
+        </ul>
+      </div>
+
+      <div class="bg-orange-50 p-4 rounded-md">
+        <p class="font-semibold text-orange-700">B. Model-based Agent (基于模型的 Agent)</p>
+        <ul class="list-disc list-inside mt-2 space-y-1 text-gray-700 ml-4">
+          <li><strong>工作机制</strong>：维护世界状态的内部模型,根据感知更新模型</li>
+          <li><strong>进步</strong>：比反射型 Agent 更智能,能处理部分可观测环境</li>
+          <li><strong>局限性</strong>：<span class="text-orange-600">虽有记忆但仍缺乏目标导向的规划能力</span></li>
+          <li class="text-orange-600 font-semibold">为什么不够：它知道"现在在哪里",但不会主动规划"如何到达目标"</li>
+        </ul>
+      </div>
+
+      <div class="bg-gray-100 p-4 rounded-md">
+        <p class="font-semibold text-gray-700">D. Simple Response Agent (简单响应 Agent)</p>
+        <ul class="list-disc list-inside mt-2 space-y-1 text-gray-700 ml-4">
+          <li><strong>本质</strong>：最基础的 Agent 形式,等同或劣于反射型 Agent</li>
+          <li><strong>能力</strong>：仅能做出即时、单步响应</li>
+          <li class="text-gray-600 font-semibold">显然不适合复杂任务</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. 举一反三 -->
+  <div class="mb-6 p-5 bg-white rounded-lg shadow-md border-l-4 border-indigo-500">
+    <h2 class="text-2xl font-bold text-indigo-700 mb-3 flex items-center">
+      <span class="mr-2">💡</span> 举一反三
+    </h2>
+
+    <p class="text-gray-700 mb-3">让我们用一个<strong>旅行规划助手</strong>的代码示例来对比不同 Agent 类型：</p>
+
+    <div class="space-y-4">
+      <!-- Reflex Agent 示例 -->
+      <div>
+        <h4 class="font-semibold text-red-600 mb-2">❌ Reflex Agent 的实现（无法完成任务）</h4>
+        <pre class="bg-gray-900 text-gray-100 p-4 rounded-md overflow-x-auto"><code class="language-python">class ReflexAgent:
+    def perceive_and_act(self, perception):
+        # 简单的条件-动作规则,没有规划
+        if perception == "需要机票":
+            return "订机票"
+        elif perception == "需要酒店":
+            return "订酒店"
+        # ⚠️ 问题: 不知道先后顺序,无法处理依赖关系
+        # 如果同时需要机票和酒店,它无法规划最优顺序</code></pre>
+      </div>
+
+      <!-- Goal-based Agent 示例 -->
+      <div>
+        <h4 class="font-semibold text-green-600 mb-2">✅ Goal-based Agent 的实现（能够规划）</h4>
+        <pre class="bg-gray-900 text-gray-100 p-4 rounded-md overflow-x-auto"><code class="language-python">class GoalBasedAgent:
+    def __init__(self):
+        self.goal = None
+        self.current_state = {}
+
+    def set_goal(self, goal):
+        """设置目标：完成整个旅行安排"""
+        self.goal = goal  # 例如: "完成北京3日游安排"
+
+    def plan(self, goal, current_state):
+        """核心：规划能力 - 生成行动序列"""
+        plan = []
+
+        # 分析目标,分解为子目标
+        if goal == "完成北京3日游安排":
+            # 通过搜索算法确定最优顺序
+            plan = [
+                ("查询航班", "确定出行日期"),
+                ("预订机票", "锁定出行时间"),
+                ("预订酒店", "确保有住宿,位置靠近景点"),
+                ("规划行程", "制定每日游览路线"),
+                ("预订景点门票", "避免现场排队"),
+                ("租车或规划交通", "提高出行效率")
+            ]
+
+        return plan
+
+    def execute(self):
+        """执行规划的行动序列"""
+        plan = self.plan(self.goal, self.current_state)
+
+        for action, reason in plan:
+            print(f"执行: {action} (原因: {reason})")
+            self.current_state[action] = "已完成"
+
+            # 检查是否达到目标
+            if self.goal_reached():
+                print("✅ 目标达成!")
+                break
+
+    def goal_reached(self):
+        """检查目标是否达成"""
+        required_tasks = ["查询航班", "预订机票", "预订酒店",
+                         "规划行程", "预订景点门票"]
+        return all(task in self.current_state for task in required_tasks)
+
+
+# 使用示例
+agent = GoalBasedAgent()
+agent.set_goal("完成北京3日游安排")
+agent.execute()
+
+# 输出:
+# 执行: 查询航班 (原因: 确定出行日期)
+# 执行: 预订机票 (原因: 锁定出行时间)
+# 执行: 预订酒店 (原因: 确保有住宿,位置靠近景点)
+# ...
+# ✅ 目标达成!</code></pre>
+      </div>
+    </div>
+
+    <div class="mt-4 p-4 bg-blue-50 rounded-md">
+      <p class="font-semibold text-blue-700">关键区别：</p>
+      <ul class="list-disc list-inside mt-2 space-y-1 text-gray-700">
+        <li>Reflex Agent 只能<strong>被动响应</strong>当前感知</li>
+        <li>Goal-based Agent 能<strong>主动规划</strong>达成目标的完整路径</li>
+        <li>复杂任务需要<strong>前瞻性</strong>和<strong>全局优化</strong>,这正是目标导向 Agent 的强项</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 4. 常见误区 -->
+  <div class="mb-6 p-5 bg-white rounded-lg shadow-md border-l-4 border-yellow-500">
+    <h2 class="text-2xl font-bold text-yellow-700 mb-3 flex items-center">
+      <span class="mr-2">⚠️</span> 常见误区
+    </h2>
+
+    <div class="space-y-4">
+      <div class="bg-yellow-50 p-4 rounded-md">
+        <h4 class="font-semibold text-yellow-800 mb-2">误区 1: 认为"反应快"就是"能力强"</h4>
+        <p class="text-gray-700">
+          <strong>错误想法：</strong>反射型 Agent 反应迅速,应该能处理复杂任务。<br>
+          <strong>真相：</strong>速度 ≠ 智能。复杂任务需要的是<span class="text-yellow-700 font-semibold">规划能力</span>,而非反应速度。就像下棋,高手需要深思熟虑,而非冲动落子。
+        </p>
+      </div>
+
+      <div class="bg-yellow-50 p-4 rounded-md">
+        <h4 class="font-semibold text-yellow-800 mb-2">误区 2: 混淆"基于模型"和"目标导向"</h4>
+        <p class="text-gray-700">
+          <strong>错误想法：</strong>Model-based Agent 有内部模型,应该也能规划。<br>
+          <strong>真相：</strong>有地图(模型) ≠ 会导航(规划)。Model-based Agent 知道"世界是什么样",但 Goal-based Agent 知道"如何改变世界以达成目标"。
+        </p>
+      </div>
+
+      <div class="bg-yellow-50 p-4 rounded-md">
+        <h4 class="font-semibold text-yellow-800 mb-2">误区 3: 认为复杂任务可以拆分成多个简单任务</h4>
+        <p class="text-gray-700">
+          <strong>错误想法：</strong>用多个 Reflex Agent 组合起来就能处理复杂任务。<br>
+          <strong>真相：</strong>任务间存在<span class="text-yellow-700 font-semibold">依赖关系</span>和<span class="text-yellow-700 font-semibold">约束条件</span>,需要统一的规划协调。例如,订酒店必须在确定航班后进行,这种时序关系需要中央规划。
+        </p>
+      </div>
+
+      <div class="bg-yellow-50 p-4 rounded-md">
+        <h4 class="font-semibold text-yellow-800 mb-2">误区 4: 忽视"多步骤"的含义</h4>
+        <p class="text-gray-700">
+          <strong>关键理解：</strong>"多步骤"不仅指<strong>步骤数量多</strong>,更重要的是步骤间存在<strong>逻辑依赖</strong>和<strong>条件分支</strong>。Goal-based Agent 能够:<br>
+        </p>
+        <ul class="list-disc list-inside mt-2 space-y-1 text-gray-600 ml-4">
+          <li>根据中间结果调整后续计划</li>
+          <li>在多条路径中选择最优解</li>
+          <li>处理"如果A失败则尝试B"的条件逻辑</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. 深度知识扩展 -->
+  <div class="p-5 bg-gradient-to-r from-purple-100 to-blue-100 rounded-lg shadow-md border-2 border-purple-300">
+    <h2 class="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-700 to-blue-700 mb-4 flex items-center">
+      <span class="mr-2">🚀</span> 深度知识扩展
+    </h2>
+
+    <!-- Agent 智能层级金字塔 -->
+    <div class="mb-6 bg-white p-5 rounded-lg shadow">
+      <h3 class="text-xl font-bold text-purple-700 mb-3">📊 Agent 智能层级金字塔</h3>
+      <div class="space-y-3">
+        <div class="flex items-start">
+          <div class="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center text-white font-bold mr-4 flex-shrink-0">L5</div>
+          <div class="flex-1 bg-purple-50 p-3 rounded">
+            <p class="font-semibold text-purple-800">Utility-based Agent (效用导向)</p>
+            <p class="text-sm text-gray-600">不仅能规划,还能根据效用函数选择"最优"方案(考虑成本、时间、舒适度等多维度)</p>
+          </div>
+        </div>
+        <div class="flex items-start">
+          <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center text-white font-bold mr-4 flex-shrink-0">L4</div>
+          <div class="flex-1 bg-blue-50 p-3 rounded">
+            <p class="font-semibold text-blue-800">Goal-based Agent (目标导向) ⭐ 本题答案</p>
+            <p class="text-sm text-gray-600">能进行规划,生成达成目标的行动序列</p>
+          </div>
+        </div>
+        <div class="flex items-start">
+          <div class="w-12 h-12 bg-gradient-to-br from-green-500 to-teal-500 rounded-lg flex items-center justify-center text-white font-bold mr-4 flex-shrink-0">L3</div>
+          <div class="flex-1 bg-green-50 p-3 rounded">
+            <p class="font-semibold text-green-800">Model-based Reflex Agent (基于模型的反射)</p>
+            <p class="text-sm text-gray-600">维护内部状态,能处理部分可观测环境,但仍是反应式</p>
+          </div>
+        </div>
+        <div class="flex items-start">
+          <div class="w-12 h-12 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-lg flex items-center justify-center text-white font-bold mr-4 flex-shrink-0">L2</div>
+          <div class="flex-1 bg-yellow-50 p-3 rounded">
+            <p class="font-semibold text-yellow-800">Simple Reflex Agent (简单反射)</p>
+            <p class="text-sm text-gray-600">基于当前感知的条件-动作规则</p>
+          </div>
+        </div>
+        <div class="flex items-start">
+          <div class="w-12 h-12 bg-gradient-to-br from-gray-500 to-gray-600 rounded-lg flex items-center justify-center text-white font-bold mr-4 flex-shrink-0">L1</div>
+          <div class="flex-1 bg-gray-50 p-3 rounded">
+            <p class="font-semibold text-gray-800">Simple Response Agent (简单响应)</p>
+            <p class="text-sm text-gray-600">最基础的输入-输出映射</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 规划算法详解 -->
+    <div class="mb-6 bg-white p-5 rounded-lg shadow">
+      <h3 class="text-xl font-bold text-blue-700 mb-3">🧮 Goal-based Agent 的核心算法</h3>
+
+      <div class="mb-4">
+        <h4 class="font-semibold text-blue-600 mb-2">1. 状态空间搜索 (State Space Search)</h4>
+        <div class="bg-blue-50 p-3 rounded text-sm text-gray-700 space-y-2">
+          <p><strong>核心思想：</strong>将问题建模为状态图,通过搜索算法找到从初始状态到目标状态的路径。</p>
+          <pre class="bg-gray-900 text-gray-100 p-3 rounded mt-2 overflow-x-auto"><code class="language-python"># 经典的 A* 搜索算法示例
+import heapq
+
+def a_star_search(start, goal, get_neighbors, heuristic):
+    """
+    A* 搜索算法 - Goal-based Agent 的核心
+
+    参数:
+        start: 初始状态
+        goal: 目标状态
+        get_neighbors: 函数,返回当前状态的所有可达邻居状态
+        heuristic: 启发式函数,估计从当前状态到目标的代价
+    """
+    # 优先队列: (f值, 状态, 路径)
+    frontier = [(0, start, [])]
+    explored = set()
+
+    while frontier:
+        f_cost, current, path = heapq.heappop(frontier)
+
+        # 找到目标
+        if current == goal:
+            return path + [current]
+
+        if current in explored:
+            continue
+        explored.add(current)
+
+        # 扩展邻居节点
+        for neighbor, cost in get_neighbors(current):
+            if neighbor not in explored:
+                g_cost = len(path) + cost  # 实际代价
+                h_cost = heuristic(neighbor, goal)  # 启发式估计
+                f_cost = g_cost + h_cost  # 总代价
+
+                heapq.heappush(frontier,
+                              (f_cost, neighbor, path + [current]))
+
+    return None  # 无解
+
+# 旅行规划示例
+def plan_trip():
+    start = "家"
+    goal = "完成旅行准备"
+
+    def get_neighbors(state):
+        # 定义状态转移
+        transitions = {
+            "家": [("查机票", 1)],
+            "查机票": [("订机票", 2), ("放弃出行", 0)],
+            "订机票": [("订酒店", 2)],
+            "订酒店": [("规划行程", 1)],
+            "规划行程": [("完成旅行准备", 0)]
+        }
+        return transitions.get(state, [])
+
+    def heuristic(state, goal):
+        # 简单的启发式: 估计剩余步骤数
+        steps_to_goal = {
+            "家": 4,
+            "查机票": 3,
+            "订机票": 2,
+            "订酒店": 1,
+            "规划行程": 0,
+            "完成旅行准备": 0
+        }
+        return steps_to_goal.get(state, 999)
+
+    plan = a_star_search(start, goal, get_neighbors, heuristic)
+    return plan
+
+# 执行规划
+print("旅行规划路径:", plan_trip())
+# 输出: ['家', '查机票', '订机票', '订酒店', '规划行程', '完成旅行准备']</code></pre>
+        </div>
+      </div>
+
+      <div class="mb-4">
+        <h4 class="font-semibold text-blue-600 mb-2">2. 分层任务网络 (Hierarchical Task Network, HTN)</h4>
+        <div class="bg-blue-50 p-3 rounded text-sm text-gray-700 space-y-2">
+          <p><strong>核心思想：</strong>将复杂任务递归分解为更小的子任务,直到可以直接执行。</p>
+          <pre class="bg-gray-900 text-gray-100 p-3 rounded mt-2 overflow-x-auto"><code class="language-python">class HTNPlanner:
+    def __init__(self):
+        # 定义任务分解规则
+        self.decomposition = {
+            "完成旅行": [
+                "安排交通",
+                "安排住宿",
+                "规划行程"
+            ],
+            "安排交通": [
+                "查询航班",
+                "比较价格",
+                "预订机票",
+                "确认订单"
+            ],
+            "安排住宿": [
+                "搜索酒店",
+                "筛选位置",
+                "预订酒店"
+            ],
+            "规划行程": [
+                "列出景点",
+                "优化路线",
+                "预订门票"
+            ]
+        }
+
+        # 定义原子操作(不可再分解)
+        self.primitive_tasks = {
+            "查询航班", "比较价格", "预订机票", "确认订单",
+            "搜索酒店", "筛选位置", "预订酒店",
+            "列出景点", "优化路线", "预订门票"
+        }
+
+    def plan(self, task, depth=0):
+        """递归分解任务"""
+        indent = "  " * depth
+
+        # 如果是原子任务,直接执行
+        if task in self.primitive_tasks:
+            print(f"{indent}✓ 执行: {task}")
+            return [task]
+
+        # 否则递归分解
+        if task in self.decomposition:
+            print(f"{indent}📋 分解任务: {task}")
+            plan = []
+            for subtask in self.decomposition[task]:
+                plan.extend(self.plan(subtask, depth + 1))
+            return plan
+
+        return []
+
+# 使用示例
+planner = HTNPlanner()
+print("=== HTN 规划过程 ===")
+final_plan = planner.plan("完成旅行")
+
+print("\n=== 最终执行计划 ===")
+for i, action in enumerate(final_plan, 1):
+    print(f"{i}. {action}")</code></pre>
+        </div>
+      </div>
+
+      <div>
+        <h4 class="font-semibold text-blue-600 mb-2">3. STRIPS 规划语言</h4>
+        <div class="bg-blue-50 p-3 rounded text-sm text-gray-700 space-y-2">
+          <p><strong>核心思想：</strong>使用前提条件和效果来描述行动,通过逻辑推理生成计划。</p>
+          <pre class="bg-gray-900 text-gray-100 p-3 rounded mt-2 overflow-x-auto"><code class="language-python">class STRIPSAction:
+    """STRIPS 风格的行动表示"""
+    def __init__(self, name, preconditions, effects):
+        self.name = name
+        self.preconditions = preconditions  # 前提条件
+        self.effects = effects  # 执行效果
+
+    def is_applicable(self, state):
+        """检查行动是否可在当前状态执行"""
+        return all(cond in state for cond in self.preconditions)
+
+    def apply(self, state):
+        """执行行动,产生新状态"""
+        new_state = state.copy()
+        for effect in self.effects:
+            if effect.startswith("NOT_"):
+                new_state.discard(effect[4:])
+            else:
+                new_state.add(effect)
+        return new_state
+
+# 定义旅行规划的行动
+actions = [
+    STRIPSAction(
+        "查询航班",
+        preconditions={"有出行意图"},
+        effects={"知道航班信息"}
+    ),
+    STRIPSAction(
+        "预订机票",
+        preconditions={"知道航班信息", "有支付能力"},
+        effects={"已预订机票", "NOT_有支付能力"}
+    ),
+    STRIPSAction(
+        "预订酒店",
+        preconditions={"已预订机票"},
+        effects={"已预订酒店"}
+    ),
+    STRIPSAction(
+        "规划行程",
+        preconditions={"已预订机票", "已预订酒店"},
+        effects={"旅行准备完成"}
+    )
+]
+
+# 初始状态
+initial_state = {"有出行意图", "有支付能力"}
+goal = {"旅行准备完成"}
+
+# 简单的前向搜索规划器
+def forward_search(initial, goal, actions):
+    queue = [(initial, [])]
+    explored = set()
+
+    while queue:
+        state, plan = queue.pop(0)
+
+        if goal.issubset(state):
+            return plan
+
+        state_tuple = tuple(sorted(state))
+        if state_tuple in explored:
+            continue
+        explored.add(state_tuple)
+
+        for action in actions:
+            if action.is_applicable(state):
+                new_state = action.apply(state)
+                queue.append((new_state, plan + [action.name]))
+
+    return None
+
+plan = forward_search(initial_state, goal, actions)
+print("STRIPS 规划结果:", plan)
+# 输出: ['查询航班', '预订机票', '预订酒店', '规划行程']</code></pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- 实际应用案例 -->
+    <div class="mb-6 bg-white p-5 rounded-lg shadow">
+      <h3 class="text-xl font-bold text-green-700 mb-3">🌍 Goal-based Agent 在现代 AI 系统中的应用</h3>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="bg-green-50 p-4 rounded-lg">
+          <h4 class="font-semibold text-green-700 mb-2">🤖 大语言模型 Agent (如 GPT-4, Claude)</h4>
+          <ul class="text-sm text-gray-700 space-y-1 list-disc list-inside">
+            <li><strong>Chain-of-Thought</strong>: 生成推理链条</li>
+            <li><strong>ReAct</strong>: Reasoning + Acting,交替推理和行动</li>
+            <li><strong>Tool Use</strong>: 规划何时调用哪些外部工具</li>
+          </ul>
+          <pre class="bg-gray-900 text-gray-100 p-2 rounded mt-2 text-xs overflow-x-auto"><code># LangChain Agent 示例
+from langchain.agents import initialize_agent
+from langchain.tools import Tool
+
+tools = [
+    Tool(name="搜索", func=search_engine),
+    Tool(name="计算器", func=calculator),
+    Tool(name="数据库", func=query_db)
+]
+
+agent = initialize_agent(
+    tools, llm,
+    agent="zero-shot-react-description"
+)
+
+# Agent 会自动规划使用哪些工具
+result = agent.run(
+    "找出2023年销售额最高的产品"
+)
+# 规划: 数据库查询 → 计算器排序 → 返回结果</code></pre>
+        </div>
+
+        <div class="bg-blue-50 p-4 rounded-lg">
+          <h4 class="font-semibold text-blue-700 mb-2">🎮 游戏 AI (如 F.E.A.R., 星际争霸)</h4>
+          <ul class="text-sm text-gray-700 space-y-1 list-disc list-inside">
+            <li><strong>GOAP</strong> (Goal-Oriented Action Planning)</li>
+            <li>NPC 根据目标动态规划行为序列</li>
+            <li>使游戏角色表现出"智能"而非"脚本化"</li>
+          </ul>
+          <pre class="bg-gray-900 text-gray-100 p-2 rounded mt-2 text-xs overflow-x-auto"><code># 游戏 NPC 的 GOAP 规划
+class NPCAgent:
+    def plan_behavior(self):
+        goal = "消灭敌人"
+        current_state = {
+            "有武器": False,
+            "有弹药": False,
+            "知道敌人位置": True
+        }
+
+        # 规划行动序列
+        # 1. 寻找武器
+        # 2. 获取弹药
+        # 3. 前往敌人位置
+        # 4. 攻击敌人
+
+        return self.goap_planner.plan(
+            current_state, goal
+        )</code></pre>
+        </div>
+
+        <div class="bg-purple-50 p-4 rounded-lg">
+          <h4 class="font-semibold text-purple-700 mb-2">🚗 自动驾驶系统</h4>
+          <ul class="text-sm text-gray-700 space-y-1 list-disc list-inside">
+            <li><strong>路径规划</strong>: 从A点到B点的最优路线</li>
+            <li><strong>行为规划</strong>: 变道、超车、避障决策</li>
+            <li><strong>分层规划</strong>: 全局路径 → 局部路径 → 运动控制</li>
+          </ul>
+        </div>
+
+        <div class="bg-yellow-50 p-4 rounded-lg">
+          <h4 class="font-semibold text-yellow-700 mb-2">🏭 工业机器人</h4>
+          <ul class="text-sm text-gray-700 space-y-1 list-disc list-inside">
+            <li><strong>任务规划</strong>: 装配、搬运、检测流程</li>
+            <li><strong>运动规划</strong>: 避免碰撞的轨迹生成</li>
+            <li><strong>调度优化</strong>: 多机器人协同作业</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- 学习路线图 -->
+    <div class="bg-white p-5 rounded-lg shadow">
+      <h3 class="text-xl font-bold text-indigo-700 mb-3">📚 深入学习路线图</h3>
+
+      <div class="space-y-3">
+        <div class="flex items-start">
+          <div class="w-8 h-8 bg-indigo-500 rounded-full flex items-center justify-center text-white font-bold mr-3 flex-shrink-0">1</div>
+          <div>
+            <p class="font-semibold text-indigo-700">基础理论</p>
+            <p class="text-sm text-gray-600">Russell & Norvig 《人工智能:一种现代方法》第2-4章 (Agent 理论基础)</p>
+          </div>
+        </div>
+
+        <div class="flex items-start">
+          <div class="w-8 h-8 bg-indigo-500 rounded-full flex items-center justify-center text-white font-bold mr-3 flex-shrink-0">2</div>
+          <div>
+            <p class="font-semibold text-indigo-700">搜索与规划算法</p>
+            <p class="text-sm text-gray-600">学习 A*、Dijkstra、BFS/DFS、STRIPS、HTN 等算法</p>
+          </div>
+        </div>
+
+        <div class="flex items-start">
+          <div class="w-8 h-8 bg-indigo-500 rounded-full flex items-center justify-center text-white font-bold mr-3 flex-shrink-0">3</div>
+          <div>
+            <p class="font-semibold text-indigo-700">实践项目</p>
+            <p class="text-sm text-gray-600">实现一个简单的路径规划系统、游戏 AI 或机器人控制器</p>
+          </div>
+        </div>
+
+        <div class="flex items-start">
+          <div class="w-8 h-8 bg-indigo-500 rounded-full flex items-center justify-center text-white font-bold mr-3 flex-shrink-0">4</div>
+          <div>
+            <p class="font-semibold text-indigo-700">前沿技术</p>
+            <p class="text-sm text-gray-600">研究强化学习 Agent、Multi-Agent System、LLM-based Agent</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 总结 -->
+  <div class="mt-6 p-5 bg-gradient-to-r from-green-100 to-blue-100 rounded-lg border-2 border-green-300">
+    <h3 class="text-xl font-bold text-green-700 mb-3">🎯 核心要点总结</h3>
+    <div class="space-y-2 text-gray-800">
+      <p>✅ <strong>复杂多步骤任务的本质</strong>: 需要前瞻性规划、全局优化、处理依赖关系</p>
+      <p>✅ <strong>Goal-based Agent 的核心能力</strong>: 状态空间搜索、目标分解、行动序列生成</p>
+      <p>✅ <strong>与其他 Agent 的区别</strong>: 反射型只能反应,基于模型只有记忆,只有目标导向才能规划</p>
+      <p>✅ <strong>实际应用广泛</strong>: 从游戏 AI 到自动驾驶,从 LLM Agent 到工业机器人</p>
+      <p class="mt-3 p-3 bg-white rounded border-l-4 border-green-500">
+        <strong>记忆口诀：</strong><span class="text-green-700 font-semibold">"反射快但盲,模型知但呆,目标慧能谋,效用更精明"</span>
+      </p>
+    </div>
+  </div>
+</div>

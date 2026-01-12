@@ -472,7 +472,7 @@ function generateDashboardHTML(exams) {
                             <button class="btn btn-primary" onclick="retakeQuiz('${quiz.quiz_id}')">
                                 🔄 重做
                             </button>
-                            <button class="btn" onclick="deleteQuiz('${quiz.quiz_id}')" style="background: #dc3545; color: white;">
+                            <button class="btn" onclick="deleteExamRecord('${quiz.exam_id}')" style="background: #dc3545; color: white;">
                                 🗑️ 删除记录
                             </button>
                         </div>
@@ -558,23 +558,23 @@ function generateDashboardHTML(exams) {
 
 
 
-        async function deleteQuiz(quizId) {
-            if (!confirm('确定要删除这次考试记录吗？\\n\\n说明：此操作只会删除本次提交记录和答案，试卷和题目会保留，你可以重新答题。')) {
+        async function deleteExamRecord(examId) {
+            if (!confirm('确定要删除这次考试记录吗？\\n\\n说明：此操作会删除本次提交记录和答案，但试卷和题目会保留，你可以重新答题。')) {
                 return;
             }
 
             try {
-                const response = await fetch('/api/delete-submission', {
+                const response = await fetch('/api/delete-exam', {
                     method: 'DELETE',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ quiz_id: quizId })
+                    body: JSON.stringify({ exam_id: examId })
                 });
                 const data = await response.json();
 
                 if (data.success) {
-                    alert('考试记录已删除，试卷可以重新答题');
+                    alert('考试记录已删除');
                     // 刷新页面
                     window.location.reload();
                 } else {

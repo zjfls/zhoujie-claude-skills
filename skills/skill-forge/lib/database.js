@@ -228,7 +228,7 @@ class Database {
     async getAllExams() {
         const sql = `
             SELECT e.*, q.topic, q.difficulty, q.question_count,
-                   s.obtained_score, s.total_score, s.submitted_at, s.pass_status
+                   s.obtained_score, s.total_score, s.submitted_at, s.pass_status, s.time_spent
             FROM exams e
             JOIN quizzes q ON e.quiz_id = q.quiz_id
             LEFT JOIN submissions s ON e.exam_id = s.exam_id
@@ -580,6 +580,35 @@ class Database {
             ORDER BY question_number ASC, created_at ASC
         `;
         return this.all(sql, [exam_id]);
+    }
+    /**
+     * 创建题目深度解析记录
+     */
+    async createAnalysisRecord(exam_id, question_id, content, title) {
+        const sql = `
+            INSERT INTO question_analyses (exam_id, question_id, content, title, created_at)
+            VALUES (?, ?, ?, ?, ?)
+        `;
+        return this.run(sql, [exam_id, question_id, content, title || null, new Date().toISOString()]);
+    }
+
+    /**
+     * 获取题目的所有解析记录
+     */
+    async getAnalysisRecords(exam_id, question_id) {
+        const sql = `
+            SELECT * FROM question_analyses
+            WHERE exam_id = ? AND question_id = ?
+            ORDER BY created_at DESC
+        `;
+        return this.all(sql, [exam_id, question_id]);
+    }
+
+    /**
+     * 删除指定的解析记录
+     */
+    async deleteAnalysisRecord(id) {
+        return this.run('DELETE FROM question_analyses WHERE id = ?', [id]);
     }
 }
 

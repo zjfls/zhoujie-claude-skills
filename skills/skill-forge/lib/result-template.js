@@ -1072,7 +1072,373 @@ function generateResultHTML(quiz, submission, questions, answers, aiInteractions
             };
             document.addEventListener('keydown', escHandler);
         }
+
+        // ==================== 深度解析功能 ====================
+        
+        let currentQuestionId = null;
+        let examId = '${submission.exam_id}';
+        let quizId = '${quiz.quiz_id}';
+
+        async function openDeepAnalysis(questionId) {
+            currentQuestionId = questionId;
+            showAnalysisModal();
+            loadAnalysisHistory(questionId);
+        }
+
+        function showAnalysisModal() {
+            let modal = document.getElementById('analysis-modal');
+            if (!modal) {
+                createAnalysisModal();
+                modal = document.getElementById('analysis-modal');
+            }
+            modal.style.display = 'flex';
+        }
+
+        function closeAnalysisModal() {
+            const modal = document.getElementById('analysis-modal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+
+        function createAnalysisModal() {
+            const modal = document.createElement('div');
+            modal.id = 'analysis-modal';
+            modal.style.cssText = \`
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.5);
+                display: none;
+                z-index: 3000;
+                justify-content: flex-end; /* 侧边栏模式 */
+            \`;
+
+            modal.innerHTML = \`
+                <div class="analysis-sidebar" style="
+                    width: 600px;
+                    height: 100%;
+                    background: white;
+                    box-shadow: -4px 0 20px rgba(0,0,0,0.1);
+                    display: flex;
+                    flex-direction: column;
+                    animation: slideLeft 0.3s ease;
+                ">
+                    <div style="
+                        padding: 20px;
+                        border-bottom: 1px solid #eee;
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        background: #f8f9fa;
+                    ">
+                        <h3 style="margin: 0; color: #333; display: flex; align-items: center; gap: 8px;">
+                            <span>🔬</span> AI 深度解析
+                        </h3>
+                        <button onclick="closeAnalysisModal()" style="border: none; background: none; font-size: 24px; color: #999; cursor: pointer;">&times;</button>
+                    </div>
+
+                    <div id="analysis-content" style="flex: 1; overflow-y: auto; padding: 20px; background: #fafafa;">
+                        <!-- 历史记录和新生成的内容将在这里 -->
+                        <div id="analysis-list"></div>
+                    </div>
+
+                    <div style="padding: 20px; border-top: 1px solid #eee; background: white;">
+                        <textarea id="user-analysis-input" placeholder="输入你想让 AI 重点分析的内容... (可选)" style="
+                            width: 100%;
+                            height: 80px;
+                            padding: 10px;
+                            border: 1px solid #ddd;
+                            border-radius: 8px;
+                            margin-bottom: 15px;
+                            resize: vertical;
+                            font-family: inherit;
+                        "></textarea>
+                         <div style="margin-bottom: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
+                            <button class="suggestion-btn" onclick="fillInput('为什么我做错了？')">🤔 为什么我做错了？</button>
+                            <button class="suggestion-btn" onclick="fillInput('核心考点解析')">📚 核心考点解析</button>
+                            <button class="suggestion-btn" onclick="fillInput('举个例子')">💡 举个例子</button>
+                        </div>
+                        <button onclick="triggerAnalysis()" id="btn-generate-analysis" style="
+
+                            width: 100%;
+                            padding: 12px;
+                            background: linear-gradient(135deg, #667eea, #764ba2);
+                            color: white;
+                            border: none;
+                            border-radius: 8px;
+                            font-weight: 600;
+                            cursor: pointer;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            gap: 8px;
+                        ">
+                            <span>✨</span> 生成深度解析
+                        </button>
+                    </div>
+                </div>
+            \`;
+
+             // 添加样式
+            const style = document.createElement('style');
+            style.textContent = \`
+                @keyframes slideLeft {
+                    from { transform: translateX(100%); }
+                    to { transform: translateX(0); }
+                }
+                .suggestion-btn {
+                    padding: 6px 12px;
+                    background: #f0f4ff;
+                    color: #667eea;
+                    border: 1px solid #d0e3ff;
+                    border-radius: 15px;
+                    font-size: 13px;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+                .suggestion-btn:hover {
+                    background: #e0ebff;
+                    border-color: #667eea;
+                }
+                .analysis-card {
+                    background: white;
+                    border-radius: 12px;
+                    padding: 20px;
+                    margin-bottom: 20px;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+                    border: 1px solid #eee;
+                    position: relative;
+                }
+                .analysis-header {
+                    display: flex;
+                    justify-content: space-between;
+                    margin-bottom: 15px;
+                    font-size: 12px;
+                    color: #999;
+                    border-bottom: 1px solid #f5f5f5;
+                    padding-bottom: 10px;
+                }
+                .analysis-body h3, .analysis-body h4 {
+                    margin-top: 15px;
+                    margin-bottom: 10px;
+                    color: #333;
+                }
+                .analysis-body p {
+                    margin-bottom: 10px;
+                    line-height: 1.6;
+                    color: #555;
+                }
+                .delete-btn {
+                    color: #dc3545;
+                    cursor: pointer;
+                    font-size: 12px;
+                    padding: 2px 6px;
+                    border-radius: 4px;
+                }
+                .delete-btn:hover {
+                    background: #fff8f8;
+                }
+                /* 代码高亮样式微调 */
+                .analysis-body pre {
+                    background: #282c34;
+                    padding: 15px;
+                    border-radius: 6px;
+                    overflow-x: auto;
+                    margin: 10px 0;
+                }
+                .analysis-body code {
+                    font-family: 'Monaco', monospace;
+                    font-size: 13px;
+                }
+            \`;
+            document.head.appendChild(style);
+            
+            document.body.appendChild(modal);
+
+             // 点击背景关闭
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    closeAnalysisModal();
+                }
+            });
+        }
+
+        async function loadAnalysisHistory(questionId) {
+            const container = document.getElementById('analysis-list');
+            container.innerHTML = '<div style="text-align:center; color:#999; padding:20px;">加载历史记录...</div>';
+
+            try {
+                const res = await fetch(\`/api/analyses?exam_id=\${examId}&question_id=\${questionId}\`);
+                const data = await res.json();
+                
+                if (data.analyses && data.analyses.length > 0) {
+                    container.innerHTML = data.analyses.map((item, i) => renderAnalysisItem(item, i, data.analyses.length)).join('');
+                     // 高亮代码块
+                    container.querySelectorAll('pre code').forEach((block) => {
+                        hljs.highlightElement(block);
+                    });
+                } else {
+                    container.innerHTML = '<div style="text-align:center; color:#999; padding:40px;">暂无解析记录，点击下方按钮生成。</div>';
+                }
+            } catch (err) {
+                container.innerHTML = '<div style="color:red; text-align:center;">加载失败</div>';
+                console.error(err);
+            }
+        }
+
+        function renderAnalysisItem(item, index, total) {
+            const date = new Date(item.created_at).toLocaleString();
+            const isFirst = index === 0;
+            const title = item.title || ('解析 #' + (total - index));
+            return \`
+                <div class="analysis-card" id="analysis-\${item.id}">
+                    <div class="analysis-header" onclick="toggleAnalysis(\${item.id})" style="cursor: pointer;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span class="collapse-icon" id="icon-\${item.id}">\${isFirst ? '▼' : '▶'}</span>
+                            <span style="font-weight: 600; color: #333;">\${title}</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            <span>🕒 \${date}</span>
+                            <span class="delete-btn" onclick="event.stopPropagation(); deleteAnalysis(\${item.id})">🗑️ 删除</span>
+                        </div>
+                    </div>
+                    <div class="analysis-body" id="body-\${item.id}" style="display: \${isFirst ? 'block' : 'none'};">
+                        \${item.content}
+                    </div>
+                </div>
+            \`;
+        }
+
+        function toggleAnalysis(id) {
+            const body = document.getElementById('body-' + id);
+            const icon = document.getElementById('icon-' + id);
+            if (body.style.display === 'none') {
+                body.style.display = 'block';
+                icon.textContent = '▼';
+            } else {
+                body.style.display = 'none';
+                icon.textContent = '▶';
+            }
+        }
+
+
+        function fillInput(text) {
+            const input = document.getElementById('user-analysis-input');
+            input.value = text;
+            input.focus();
+        }
+
+        async function triggerAnalysis() {
+            const btn = document.getElementById('btn-generate-analysis');
+            const input = document.getElementById('user-analysis-input');
+            const userPrompt = input.value.trim();
+            
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<span>⏳</span> 正在分析...';
+            btn.disabled = true;
+
+            // 计时器
+            let seconds = 0;
+            const timerInterval = setInterval(() => {
+                seconds++;
+                loadingDiv.innerHTML = \`<div style="text-align:center; padding:20px; color:#667eea;">🤖 正在深度思考中... (\${seconds}秒)</div>\`;
+            }, 1000);
+
+             // 也是显示一个临时的 loading 占位
+            const list = document.getElementById('analysis-list');
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'analysis-card';
+            loadingDiv.innerHTML = \`<div style="text-align:center; padding:20px; color:#667eea;">🤖 正在深度思考中... (0秒)</div>\`;
+            list.prepend(loadingDiv); // 插入到最前面
+
+            try {
+                const res = await fetch('/api/analyze-question', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        exam_id: examId,
+                        question_id: currentQuestionId,
+                        quiz_id: quizId,
+                        user_prompt: userPrompt
+                    })
+                });
+                
+                const data = await res.json();
+                const requestId = data.requestId;
+                
+                // 轮询结果
+                await pollAnalysisResult(requestId, loadingDiv, timerInterval);
+                
+                // 清空输入框
+                input.value = '';
+
+            } catch (err) {
+                console.error(err);
+                loadingDiv.innerHTML = \`<div style="color:red; padding:10px;">请求失败: \${err.message}</div>\`;
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+
+
+        async function pollAnalysisResult(requestId, placeholderElement, timerInterval) {
+            const maxRetries = 150; // 150次 * 2秒 = 300秒 = 5分钟超时
+            let retries = 0;
+
+            while (retries < maxRetries) {
+                await new Promise(r => setTimeout(r, 2000));
+                
+                try {
+                    const res = await fetch(\`/api/ai-status?requestId=\${requestId}\`);
+                    const statusData = await res.json();
+                    
+                    if (statusData.status === 'completed') {
+                        // 停止计时器
+                        if (timerInterval) clearInterval(timerInterval);
+                        // 替换占位符
+                        // 为了获取完整的数据库记录（包含ID和时间），我们需要重新加载列表，或者后端返回完整记录
+                        // 这里我们简单起见，重新加载列表
+                        loadAnalysisHistory(currentQuestionId);
+                        return;
+                    } else if (statusData.status === 'error') {
+                        if (timerInterval) clearInterval(timerInterval);
+                        placeholderElement.innerHTML = \`<div style="color:red; padding:10px;">分析出错: \${statusData.error}</div>\`;
+                        return;
+                    }
+                } catch (err) {
+                    console.error('轮询出错', err);
+                }
+                retries++;
+            }
+            if (timerInterval) clearInterval(timerInterval);
+             placeholderElement.innerHTML = \`<div style="color:red; padding:10px;">请求超时（5分钟）</div>\`;
+        }
+
+        async function deleteAnalysis(id) {
+            if (!confirm('确定要删除这条解析记录吗？')) return;
+            
+            try {
+                const res = await fetch(\`/api/analysis?id=\${id}\`, { method: 'DELETE' });
+                if (res.ok) {
+                    // 移除元素
+                    const el = document.getElementById(\`analysis-\${id}\`);
+                    if (el) {
+                        el.style.opacity = '0';
+                        setTimeout(() => el.remove(), 300);
+                    }
+                } else {
+                    alert('删除失败');
+                }
+            } catch (err) {
+                alert('删除出错');
+            }
+        }
     </script>
+
 </body>
 </html>`;
 }
@@ -1185,8 +1551,28 @@ function generateAnswerAnalysis(question, answer, isWrongOnly, aiInteractions = 
                     `).join('')}
                 </div>
             ` : ''}
+
+            <!-- AI 深度解析按钮区 -->
+            <div class="deep-analysis-section" id="deep-analysis-area-${question.id}" style="margin-top: 15px;">
+                <button onclick="openDeepAnalysis('${question.id}')" style="
+                    background: white;
+                    color: #667eea;
+                    border: 1px solid #667eea;
+                    padding: 8px 16px;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-size: 14px;
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    transition: all 0.2s;
+                " onmouseover="this.style.background='#f0f4ff'" onmouseout="this.style.background='white'">
+                    <span>🤖</span> AI 深度解析
+                </button>
+            </div>
         </div>
     `;
+
 }
 
 function escapeHtml(text) {

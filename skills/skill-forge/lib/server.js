@@ -472,15 +472,24 @@ const server = http.createServer(async (req, res) => {
         if (pathname === '/api/generate-history-report' && req.method === 'POST') {
             try {
                 console.log('正在生成历史报告...');
-                const exams = await db.getAllExams();
-                const historyDir = path.join(DATA_DIR, 'history');
-                if (!fs.existsSync(historyDir)) fs.mkdirSync(historyDir, { recursive: true });
+                // 获取完整数据
+                const exams = await db.getAllExams(); // 包含题目信息和提交信息的完整列表
+                const stats = await db.getStatistics();
+                const wrongQuestions = await db.getWrongQuestions();
 
+                // 确保 history-template 目录存在
+                const historyDir = path.join(DATA_DIR, 'history');
+                if (!fs.existsSync(historyDir)) {
+                    fs.mkdirSync(historyDir, { recursive: true });
+                }
+
+                // 生成文件名
                 const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
                 const filename = `report_${timestamp}.html`;
                 const filePath = path.join(historyDir, filename);
 
-                const html = generateSimpleHistoryHTML(exams);
+                // 使用丰富的模板生成 HTML
+                const html = generateHistoryHTML(exams, stats, wrongQuestions);
                 fs.writeFileSync(filePath, html);
 
                 res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -759,8 +768,96 @@ const server = http.createServer(async (req, res) => {
             return;
         }
 
-        // 404
-        res.writeHead(404);
+
+        // ==================== 深度解析 API ====================
+
+        // 生成题目深度解析
+        if (pathname === '/api/analyze-question' && req.method === 'POST') {
+            let body = '';
+            req.on('data', chunk => {
+                body += chunk.toString();
+            });
+
+            req.on('end', async () => {
+                try {
+                    const data = JSON.parse(body);
+                    const { exam_id, question_id, quiz_id, user_prompt } = data;
+
+                    if (!exam_id || !question_id || !quiz_id) {
+                        res.writeHead(400, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ error: 'Missing required fields' }));
+                        return;
+                    }
+
+                    // 生成请求ID
+                    const requestId = `analysis_${exam_id}_${question_id}_${Date.now()}`;
+
+                    // 设置初始状态
+                    aiRequestsMap.set(requestId, {
+                        status: 'processing',
+                        startTime: Date.now()
+                    });
+
+                    // 立即返回requestId
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ requestId, message: '解析请求已提交' }));
+
+                    // 异步处理
+                    handleAnalysisRequest(requestId, exam_id, question_id, quiz_id, user_prompt);
+
+                } catch (err) {
+                    console.error('深度解析请求失败:', err);
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: err.message }));
+                }
+            });
+            return;
+        }
+
+        // 获取题目的深度解析记录
+        if (pathname === '/api/analyses' && req.method === 'GET') {
+            const exam_id = parsedUrl.query.exam_id;
+            const question_id = parsedUrl.query.question_id;
+
+            if (!exam_id || !question_id) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Missing parameters' }));
+                return;
+            }
+
+            try {
+                const analyses = await db.getAnalysisRecords(exam_id, question_id);
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ analyses }));
+            } catch (err) {
+                console.error('获取解析记录失败:', err);
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: err.message }));
+            }
+            return;
+        }
+
+        // 删除深度解析记录
+        if (pathname === '/api/analysis' && req.method === 'DELETE') {
+            const id = parsedUrl.query.id;
+
+            if (!id) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Missing id' }));
+                return;
+            }
+
+            try {
+                await db.deleteAnalysisRecord(id);
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: true }));
+            } catch (err) {
+                console.error('删除解析记录失败:', err);
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: err.message }));
+            }
+            return;
+        } res.writeHead(404);
         res.end('Not found');
 
     } catch (error) {
@@ -894,6 +991,124 @@ ${question.options ? `选项：\n${question.options.map((opt, i) => `${String.fr
         aiRequestsMap.set(requestId, {
             status: 'error',
             error: error.message
+        });
+    }
+}
+
+/**
+ * 处理深度解析请求
+ */
+async function handleAnalysisRequest(requestId, exam_id, question_id, quiz_id, user_prompt) {
+    try {
+        const question = await db.getQuestion(quiz_id, parseInt(question_id.replace(/^.*_q/, '').replace(/^.*_/, '')) || question_id); // 尝试解析 question number 或直接用 id
+        // 注意：question_id 可能是数据库 ID，也可能是 question_number，这里我们假设传入的是 database id
+        // 实际上 getQuestion 需要 quiz_id 和 question_number
+        // 我们需要通过 id 获取 question，或者统一接口参数。
+        // 为了稳妥，重新查询一下
+
+        // 修正：我们需要根据 ID 获取 Question，可以在 Database 类加一个 getQuestionById，或者...
+        // 现有的 getQuestion 是 (quiz_id, question_number)
+        // 让我们稍微绕一下，先通过 getAllQueries 获取所有题目然后 find? 不太好。
+        // 添加一个 getQuestionById 方法到 Database 类会更好，但不想改动太大。
+        // 我们可以根据 question_id (Database ID) 查 all questions of quiz.
+
+        const allQuestions = await db.getQuestions(quiz_id);
+        const targetQ = allQuestions.find(q => q.id == question_id);
+
+        if (!targetQ) {
+            throw new Error('题目未找到');
+        }
+
+        // 获取用户的答案 (需要查询 answers 表)
+        // 这里我们可以查询 answers 表
+        const submission = await db.get(
+            'SELECT submission_id FROM submissions WHERE exam_id = ? ORDER BY submitted_at DESC LIMIT 1',
+            [exam_id]
+        );
+
+        let userAnswer = null;
+        let isCorrect = false;
+
+        if (submission) {
+            const answerRecord = await db.get(
+                'SELECT user_answer, is_correct FROM answers WHERE submission_id = ? AND question_id = ?',
+                [submission.submission_id, question_id]
+            );
+            if (answerRecord) {
+                userAnswer = answerRecord.user_answer;
+                isCorrect = answerRecord.is_correct === 1;
+            }
+        }
+
+        const prompt = `
+你是一位专业的计算机科学导师。请对以下题目进行"深度解析"。
+
+题目内容：
+${targetQ.content}
+
+选项：
+${targetQ.options ? JSON.stringify(targetQ.options) : '无'}
+
+正确答案：
+${targetQ.correct_answer}
+
+用户的答案：
+${userAnswer || '未作答'} (${isCorrect ? '正确' : '错误'})
+
+请提供一份 HTML 格式的深度解析（不要包含 html/body 标签，直接从 div 开始），包含以下部分：
+1. **核心考点**：这道题考察了什么底层原理或核心概念。
+2. **逻辑推导**：通过逻辑推理详细解释为什么正确答案是正确的，以及错误选项为什么是错的。
+3. **举一反三**：给出一个类似的简短代码示例或场景，帮助加深理解。
+4. **常见误区**：指出初学者容易犯错的地方。
+
+${user_prompt ? `
+【用户特别要求】：
+请重点关注用户的以下指示或问题，并在解析中专门进行回答。如果是提问，请确保你的回答直接解决了用户的疑问：
+"${user_prompt}"
+` : ''}
+
+要求：
+- 使用生动、易懂的语言。
+- HTML 样式要美观，使用 Tailwind CSS 类名或者内联样式（参考现有的紫色/蓝色风格）。
+- 代码块请使用 <pre><code class="language-xxx">...</code></pre> 格式。
+
+【重要】请按照以下格式输出，第一行是标题（不超过15个字，概括解析核心内容），然后是空行，然后是 HTML 内容：
+
+---TITLE---
+[在这里写一个简短的标题，如"目标导向Agent的规划能力"]
+---CONTENT---
+[在这里写HTML解析内容]
+`;
+
+        // 调用 AI
+        const rawResponse = await callClaudeAI(prompt);
+
+        // 解析标题和内容
+        let title = null;
+        let htmlContent = rawResponse;
+
+        const titleMatch = rawResponse.match(/---TITLE---\s*([\s\S]*?)\s*---CONTENT---/);
+        if (titleMatch) {
+            title = titleMatch[1].trim().replace(/\n/g, '').slice(0, 30); // 限制长度
+            htmlContent = rawResponse.split('---CONTENT---')[1] || rawResponse;
+        }
+
+        // 清理 HTML 内容
+        htmlContent = htmlContent.replace(/```html/g, '').replace(/```/g, '').trim();
+
+        // 保存到数据库
+        await db.createAnalysisRecord(exam_id, question_id, htmlContent, title);
+
+        aiRequestsMap.set(requestId, {
+            status: 'completed',
+            result: htmlContent
+        });
+
+    } catch (err) {
+        console.error('AI 解析失败:', err);
+        aiRequestsMap.set(requestId, {
+            status: 'error',
+            error: err.message
         });
     }
 }
@@ -1242,72 +1457,6 @@ ${wd.ai_feedback ? `**AI反馈**：${wd.ai_feedback}` : ''}
 }
 
 
-/**
- * 生成历史报告HTML (简化版)
- */
-function generateSimpleHistoryHTML(exams) {
-    const completedExams = exams.filter(e => e.status === 'completed');
-
-    // 基础统计
-    const totalExams = exams.length;
-    const totalCompleted = completedExams.length;
-    const totalScore = completedExams.reduce((sum, e) => sum + (e.obtained_score || 0), 0);
-    const avgScore = totalCompleted > 0 ? (totalScore / totalCompleted).toFixed(1) : 0;
-
-    // 生成列表行
-    const rows = completedExams.sort((a, b) => new Date(b.started_at) - new Date(a.started_at)).map(e => `
-        <tr>
-            <td>${new Date(e.started_at).toLocaleString('zh-CN')}</td>
-            <td>${e.topic}</td>
-            <td><span class="badge ${e.difficulty}">${e.difficulty}</span></td>
-            <td>${e.obtained_score || 0} / ${e.total_score || 0}</td>
-            <td>${e.pass_status === 'pass' ? '<span class="status-pass">合格</span>' : '<span class="status-fail">不合格</span>'}</td>
-        </tr>
-    `).join('');
-
-    return `<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Skill Forge - 历史报告</title>
-    <style>
-        body { font-family: system-ui, sans-serif; background: #f5f7fa; color: #333; line-height: 1.6; margin: 0; padding: 40px; }
-        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        h1 { text-align: center; color: #2c3e50; margin-bottom: 30px; }
-        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 40px; }
-        .stat-card { background: #f8f9fa; padding: 20px; border-radius: 8px; text-align: center; }
-        .stat-value { font-size: 32px; font-weight: bold; color: #3498db; }
-        .stat-label { color: #7f8c8d; font-size: 14px; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; }
-        th { background: #f8f9fa; font-weight: 600; }
-        .badge { padding: 4px 8px; border-radius: 12px; font-size: 12px; text-transform: uppercase; }
-        .beginner { background: #e1f5fe; color: #0288d1; }
-        .intermediate { background: #fff3e0; color: #f57c00; }
-        .advanced { background: #ffebee; color: #d32f2f; }
-        .status-pass { color: #27ae60; font-weight: bold; }
-        .status-fail { color: #c0392b; font-weight: bold; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>📊 历史学习报告</h1>
-        <div class="stats-grid">
-            <div class="stat-card"><div class="stat-value">${totalExams}</div><div class="stat-label">总测验次数</div></div>
-            <div class="stat-card"><div class="stat-value">${totalCompleted}</div><div class="stat-label">已完成测验</div></div>
-            <div class="stat-card"><div class="stat-value">${avgScore}</div><div class="stat-label">平均得分</div></div>
-        </div>
-        <h2>详细记录</h2>
-        <table>
-            <thead><tr><th>时间</th><th>主题</th><th>难度</th><th>得分</th><th>状态</th></tr></thead>
-            <tbody>${rows}</tbody>
-        </table>
-    </div>
-</body>
-</html>`;
-}
-
 // 启动服务器
 db.initDatabase().then(() => {
     server.listen(PORT, () => {
@@ -1318,3 +1467,55 @@ db.initDatabase().then(() => {
     console.error('数据库初始化失败:', err);
     process.exit(1);
 });
+/**
+ * 通用 AI 调用函数
+ */
+function callClaudeAI(prompt) {
+    return new Promise((resolve, reject) => {
+        console.log('调用Claude CLI...');
+        const claudeProcess = spawn(CLAUDE_CLI, [
+            '--print',
+            '--model', AI_MODEL
+        ], {
+            stdio: ['pipe', 'pipe', 'pipe'],
+            shell: true
+        });
+
+        let output = '';
+        let errorOutput = '';
+        let isTimeout = false;
+
+        const timeoutId = setTimeout(() => {
+            isTimeout = true;
+            claudeProcess.kill();
+            reject(new Error(`AI请求超时（${AI_TIMEOUT}ms）`));
+        }, AI_TIMEOUT);
+
+        claudeProcess.stdout.on('data', (data) => {
+            output += data.toString();
+        });
+
+        claudeProcess.stderr.on('data', (data) => {
+            errorOutput += data.toString();
+        });
+
+        claudeProcess.on('error', (err) => {
+            clearTimeout(timeoutId);
+            reject(new Error(`Claude CLI 启动失败: ${err.message}`));
+        });
+
+        claudeProcess.on('close', (code) => {
+            clearTimeout(timeoutId);
+            if (isTimeout) return;
+
+            if (code !== 0) {
+                reject(new Error(`AI生成失败: ${errorOutput}`));
+            } else {
+                resolve(output.trim());
+            }
+        });
+
+        claudeProcess.stdin.write(prompt);
+        claudeProcess.stdin.end();
+    });
+}
