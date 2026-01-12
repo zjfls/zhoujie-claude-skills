@@ -9,6 +9,7 @@ const { generateHistoryHTML } = require('./history-template');
 const { generateDashboardHTML } = require('./dashboard-template');
 const { generateQuestionSearchHTML } = require('./question-search-template');
 const { generateQuizSearchHTML } = require('./quiz-search-template');
+const { generateQuizHTML } = require('./html-template');
 const os = require('os');
 
 // 读取配置文件
@@ -71,6 +72,41 @@ const server = http.createServer(async (req, res) => {
     console.log(`${req.method} ${pathname}`);
 
     try {
+        // 静态文件服务 (Local Vendor Assets)
+        if (pathname.startsWith('/vendor/')) {
+            const relativePath = pathname.slice('/vendor/'.length);
+            if (relativePath.includes('..')) {
+                res.writeHead(403);
+                res.end('Forbidden');
+                return;
+            }
+            const filePath = path.join(__dirname, '../public/vendor', relativePath);
+            try {
+                if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+                    const ext = path.extname(filePath);
+                    const mimeTypes = {
+                        '.css': 'text/css',
+                        '.js': 'application/javascript',
+                        '.woff2': 'font/woff2',
+                        '.woff': 'font/woff',
+                        '.ttf': 'font/ttf'
+                    };
+                    res.writeHead(200, { 'Content-Type': mimeTypes[ext] || 'application/octet-stream' });
+                    fs.createReadStream(filePath).pipe(res);
+                    return;
+                } else {
+                    res.writeHead(404);
+                    res.end('Not Found');
+                    return;
+                }
+            } catch (err) {
+                console.error('Static serve error:', err);
+                res.writeHead(500);
+                res.end('Internal Server Error');
+                return;
+            }
+        }
+
         // ==================== Dashboard首页 ====================
 
         // Dashboard首页
@@ -193,6 +229,124 @@ const server = http.createServer(async (req, res) => {
             return;
         }
 
+        // ==================== 动态页面渲染 ====================
+
+        // 动态渲染试卷页面 /quiz/:quiz_id
+        if (pathname.startsWith('/quiz/') && req.method === 'GET') {
+            const quiz_id = decodeURIComponent(pathname.substring(6)); // 去掉 '/quiz/'
+
+            try {
+                const quiz = await db.getQuiz(quiz_id);
+                if (!quiz) {
+                    res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
+                    res.end(`
+                        <!DOCTYPE html>
+                        <html><head><meta charset="UTF-8"><title>试卷未找到</title></head>
+                        <body style="font-family: sans-serif; padding: 40px; text-align: center;">
+                            <h1>❌ 试卷未找到</h1>
+                            <p>quiz_id: ${quiz_id}</p>
+                            <p><a href="/dashboard">返回 Dashboard</a></p>
+                        </body></html>
+                    `);
+                    return;
+                }
+
+                const questions = await db.getQuestions(quiz_id);
+                const quizHTML = generateQuizHTML(quiz, questions);
+
+                res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+                res.end(quizHTML);
+            } catch (err) {
+                console.error('渲染试卷页面失败:', err);
+                res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' });
+                res.end(`
+                    <!DOCTYPE html>
+                    <html><head><meta charset="UTF-8"><title>错误</title></head>
+                    <body style="font-family: sans-serif; padding: 40px; text-align: center;">
+                        <h1>❌ 加载试卷失败</h1>
+                        <p>错误信息：${err.message}</p>
+                        <p><a href="/dashboard">返回 Dashboard</a></p>
+                    </body></html>
+                `);
+            }
+            return;
+        }
+
+        // 动态渲染成绩页面 /result/:quiz_id?submission_id=xxx
+        if (pathname.startsWith('/result/') && req.method === 'GET') {
+            const quiz_id = decodeURIComponent(pathname.substring(8)); // 去掉 '/result/'
+            const submission_id = parsedUrl.query.submission_id;
+
+            try {
+                const quiz = await db.getQuiz(quiz_id);
+                if (!quiz) {
+                    res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
+                    res.end(`
+                        <!DOCTYPE html>
+                        <html><head><meta charset="UTF-8"><title>成绩未找到</title></head>
+                        <body style="font-family: sans-serif; padding: 40px; text-align: center;">
+                            <h1>❌ 成绩未找到</h1>
+                            <p>quiz_id: ${quiz_id}</p>
+                            <p><a href="/dashboard">返回 Dashboard</a></p>
+                        </body></html>
+                    `);
+                    return;
+                }
+
+                // 获取提交记录：如果提供了 submission_id 则用它，否则获取最新的
+                let submission;
+                if (submission_id) {
+                    submission = await db.getSubmission(submission_id);
+                } else {
+                    // 获取该试卷的最新提交
+                    const submissions = await db.all(
+                        `SELECT s.* FROM submissions s 
+                         JOIN exams e ON s.exam_id = e.exam_id 
+                         WHERE e.quiz_id = ? 
+                         ORDER BY s.submitted_at DESC LIMIT 1`,
+                        [quiz_id]
+                    );
+                    submission = submissions[0];
+                }
+
+                if (!submission) {
+                    res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
+                    res.end(`
+                        <!DOCTYPE html>
+                        <html><head><meta charset="UTF-8"><title>成绩未找到</title></head>
+                        <body style="font-family: sans-serif; padding: 40px; text-align: center;">
+                            <h1>❌ 未找到提交记录</h1>
+                            <p>您还没有完成此试卷</p>
+                            <p><a href="/quiz/${quiz_id}">开始答题</a> | <a href="/dashboard">返回 Dashboard</a></p>
+                        </body></html>
+                    `);
+                    return;
+                }
+
+                const questions = await db.getQuestions(quiz_id);
+                const answersWithDetails = await db.getAnswers(submission.submission_id);
+                const aiInteractions = await db.getAllAIInteractionsForExam(submission.exam_id);
+
+                const resultHTML = generateResultHTML(quiz, submission, questions, answersWithDetails, aiInteractions);
+
+                res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+                res.end(resultHTML);
+            } catch (err) {
+                console.error('渲染成绩页面失败:', err);
+                res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' });
+                res.end(`
+                    <!DOCTYPE html>
+                    <html><head><meta charset="UTF-8"><title>错误</title></head>
+                    <body style="font-family: sans-serif; padding: 40px; text-align: center;">
+                        <h1>❌ 加载成绩失败</h1>
+                        <p>错误信息：${err.message}</p>
+                        <p><a href="/dashboard">返回 Dashboard</a></p>
+                    </body></html>
+                `);
+            }
+            return;
+        }
+
         // ==================== 静态文件服务 ====================
 
         // 前端脚本
@@ -210,8 +364,32 @@ const server = http.createServer(async (req, res) => {
             return;
         }
 
-        // 试卷和历史文件
-        if (pathname.startsWith('/quizzes/') || pathname.startsWith('/history/')) {
+        // 向后兼容：旧的 /quizzes/:quiz_id/quiz.html 重定向到新路由
+        if (pathname.startsWith('/quizzes/') && pathname.endsWith('/quiz.html')) {
+            const match = pathname.match(/^\/quizzes\/([^\/]+)\/quiz\.html$/);
+            if (match) {
+                const quiz_id = decodeURIComponent(match[1]);
+                res.writeHead(302, { 'Location': `/quiz/${quiz_id}` });
+                res.end();
+                return;
+            }
+        }
+
+        // 向后兼容：旧的 /quizzes/:quiz_id/result.html 重定向到新路由
+        if (pathname.startsWith('/quizzes/') && pathname.endsWith('/result.html')) {
+            const match = pathname.match(/^\/quizzes\/([^\/]+)\/result\.html$/);
+            if (match) {
+                const quiz_id = decodeURIComponent(match[1]);
+                const submission_id = parsedUrl.query.submission_id;
+                const redirectUrl = submission_id ? `/result/${quiz_id}?submission_id=${submission_id}` : `/result/${quiz_id}`;
+                res.writeHead(302, { 'Location': redirectUrl });
+                res.end();
+                return;
+            }
+        }
+
+        // 历史报告文件（保留静态文件服务）
+        if (pathname.startsWith('/history/')) {
             const filePath = path.join(DATA_DIR, decodeURIComponent(pathname));
 
             fs.readFile(filePath, (err, data) => {
@@ -445,9 +623,10 @@ const server = http.createServer(async (req, res) => {
                     const aiInteractions = await db.getAllAIInteractionsForExam(exam_id);
 
                     const resultHTML = generateResultHTML(quiz, submission, questions, answersWithDetails, aiInteractions);
-                    const resultPath = path.join(QUIZZES_DIR, quiz_id, 'result.html');
-                    fs.writeFileSync(resultPath, resultHTML, 'utf8');
-                    console.log(`✓ 成绩页面已生成: ${resultPath}`);
+                    // result.html 不再写入磁盘，改为动态渲染
+                    // const resultPath = path.join(QUIZZES_DIR, quiz_id, 'result.html');
+                    // fs.writeFileSync(resultPath, resultHTML, 'utf8');
+                    console.log(`✓ 成绩已处理 (ID: ${submission_id})`);
 
                     res.writeHead(200, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({
@@ -583,32 +762,7 @@ const server = http.createServer(async (req, res) => {
             return;
         }
 
-        // 生成历史报告页面
-        if (pathname === '/api/generate-history-report' && req.method === 'POST') {
-            try {
-                const quizzes = await db.getAllQuizzes();
-                const stats = await db.getStatistics();
-                const wrongQuestions = await db.getWrongQuestions();
 
-                const historyHTML = generateHistoryHTML(quizzes, stats, wrongQuestions);
-                const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
-                const reportPath = path.join(HISTORY_DIR, `report_${timestamp}.html`);
-
-                fs.writeFileSync(reportPath, historyHTML, 'utf8');
-                console.log(`✓ 历史报告已生成: ${reportPath}`);
-
-                res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({
-                    success: true,
-                    reportUrl: `/history/report_${timestamp}.html`
-                }));
-            } catch (err) {
-                console.error('生成历史报告失败:', err);
-                res.writeHead(500, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ error: err.message }));
-            }
-            return;
-        }
 
         // 删除考试提交记录（不删除试卷模板）
         if (pathname === '/api/delete-submission' && req.method === 'DELETE') {

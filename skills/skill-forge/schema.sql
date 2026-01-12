@@ -10,7 +10,8 @@ CREATE TABLE IF NOT EXISTS quizzes (
     topic_detail TEXT,                       -- 详细主题说明
     difficulty TEXT NOT NULL,                -- 难度：beginner/intermediate/advanced
     question_count INTEGER NOT NULL,         -- 题目数量
-    created_at TEXT NOT NULL                 -- 创建时间（ISO格式）
+    created_at TEXT NOT NULL,                -- 创建时间（ISO格式）
+    status TEXT DEFAULT 'created'            -- 状态：created/completed
 );
 
 -- 题目表
@@ -83,6 +84,18 @@ CREATE TABLE IF NOT EXISTS ai_interactions (
     FOREIGN KEY (quiz_id) REFERENCES quizzes(quiz_id)
 );
 
+-- 题目深度解析记录表
+CREATE TABLE IF NOT EXISTS question_analyses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    exam_id TEXT NOT NULL,                   -- 关联测验ID
+    question_id INTEGER NOT NULL,            -- 关联题目ID
+    title TEXT,                              -- 解析标题（可选）
+    content TEXT NOT NULL,                   -- HTML格式的解析内容
+    created_at TEXT NOT NULL,                -- 创建时间（ISO格式）
+    FOREIGN KEY (exam_id) REFERENCES exams(exam_id),
+    FOREIGN KEY (question_id) REFERENCES questions(id)
+);
+
 -- 创建索引以提高查询性能
 CREATE INDEX IF NOT EXISTS idx_quizzes_quiz_id ON quizzes(quiz_id);
 CREATE INDEX IF NOT EXISTS idx_quizzes_created_at ON quizzes(created_at);
@@ -95,3 +108,4 @@ CREATE INDEX IF NOT EXISTS idx_submissions_submitted_at ON submissions(submitted
 CREATE INDEX IF NOT EXISTS idx_answers_submission_id ON answers(submission_id);
 CREATE INDEX IF NOT EXISTS idx_ai_interactions_exam_id ON ai_interactions(exam_id);
 CREATE INDEX IF NOT EXISTS idx_ai_interactions_quiz_id ON ai_interactions(quiz_id);
+CREATE INDEX IF NOT EXISTS idx_question_analyses_exam_question ON question_analyses(exam_id, question_id);

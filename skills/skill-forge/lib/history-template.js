@@ -60,8 +60,26 @@ function generateHistoryHTML(quizzes, stats, wrongQuestions) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>学习历史记录 - Skill Forge</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <!-- 代码高亮 (Local) -->
+    <link rel="stylesheet" href="/vendor/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="/vendor/highlight.js/11.9.0/highlight.min.js"></script>
+    <!-- KaTeX 数学公式渲染 (Local) -->
+    <link rel="stylesheet" href="/vendor/KaTeX/0.16.9/katex.min.css">
+    <script src="/vendor/KaTeX/0.16.9/katex.min.js"></script>
+    <script src="/vendor/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            renderMathInElement(document.body, {
+                delimiters: [
+                    {left: '$$', right: '$$', display: true},
+                    {left: '$', right: '$', display: false},
+                    {left: '\\(', right: '\\)', display: false},
+                    {left: '\\[', right: '\\]', display: true}
+                ],
+                throwOnError : false
+            });
+        });
+    </script>
     <style>
         * {
             margin: 0;
@@ -701,11 +719,11 @@ function generateHistoryHTML(quizzes, stats, wrongQuestions) {
     <script>
         function viewResult(quizId) {
             // 查找该测验的submission_id
-            window.location.href = \`/quizzes/\${quizId}/result.html\`;
+            window.location.href = '/result/' + quizId;
         }
 
         function continueQuiz(quizId) {
-            window.location.href = \`/quizzes/\${quizId}/quiz.html\`;
+            window.location.href = '/quiz/' + quizId;
         }
 
         function createNewQuiz() {

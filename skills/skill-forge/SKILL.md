@@ -37,7 +37,8 @@ CREATE TABLE IF NOT EXISTS quizzes (
     topic_detail TEXT,                       -- 详细主题说明
     difficulty TEXT NOT NULL,                -- 难度：beginner/intermediate/advanced
     question_count INTEGER NOT NULL,         -- 题目数量
-    created_at TEXT NOT NULL                 -- 创建时间（ISO格式）
+    created_at TEXT NOT NULL,                -- 创建时间（ISO格式）
+    status TEXT DEFAULT 'created'            -- 状态：created/completed
 );
 
 -- 考试实例表（新增）
@@ -62,6 +63,10 @@ CREATE TABLE IF NOT EXISTS questions (
     score INTEGER NOT NULL,                  -- 分值
     knowledge_points TEXT,                   -- 知识点（JSON数组）
     explanation TEXT,                        -- 题目解析
+    source_type TEXT DEFAULT 'ai_generated', -- 题目来源类型：ai_generated/interview/exam/community
+    source_url TEXT,                         -- 来源URL（如果适用）
+    source_name TEXT,                        -- 来源名称（如果适用）
+    content_hash TEXT,                       -- 内容哈希（用于去重）
     FOREIGN KEY (quiz_id) REFERENCES quizzes(quiz_id) ON DELETE CASCADE
 );
 
@@ -106,6 +111,18 @@ CREATE TABLE IF NOT EXISTS ai_interactions (
     FOREIGN KEY (quiz_id) REFERENCES quizzes(quiz_id) ON DELETE CASCADE
 );
 
+-- 题目深度解析记录表
+CREATE TABLE IF NOT EXISTS question_analyses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    exam_id TEXT NOT NULL,                   -- 关联测验ID
+    question_id INTEGER NOT NULL,            -- 关联题目ID
+    title TEXT,                              -- 解析标题（可选）
+    content TEXT NOT NULL,                   -- HTML格式的解析内容
+    created_at TEXT NOT NULL,                -- 创建时间（ISO格式）
+    FOREIGN KEY (exam_id) REFERENCES exams(exam_id) ON DELETE CASCADE,
+    FOREIGN KEY (question_id) REFERENCES questions(id)
+);
+
 -- 创建索引
 CREATE INDEX IF NOT EXISTS idx_quizzes_quiz_id ON quizzes(quiz_id);
 CREATE INDEX IF NOT EXISTS idx_exams_quiz_id ON exams(quiz_id);
@@ -114,6 +131,7 @@ CREATE INDEX IF NOT EXISTS idx_submissions_exam_id ON submissions(exam_id);
 CREATE INDEX IF NOT EXISTS idx_submissions_quiz_id ON submissions(quiz_id);
 CREATE INDEX IF NOT EXISTS idx_answers_submission_id ON answers(submission_id);
 CREATE INDEX IF NOT EXISTS idx_ai_interactions_exam_id ON ai_interactions(exam_id);
+CREATE INDEX IF NOT EXISTS idx_question_analyses_exam_question ON question_analyses(exam_id, question_id);
 ```
 
 ## ⚙️ 配置系统
@@ -237,7 +255,7 @@ vi ~/.skill-forge/config.json
 ### 2️⃣ 创建试卷流程
 
 ```
-用户请求 → 收集参数 → 生成quiz_id → 初始化数据库 → 生成题目 → 插入数据库 → 生成HTML → 启动服务器 → 打开浏览器
+用户请求 → 收集参数 → 生成quiz_id → 初始化数据库 → 生成题目 → 插入数据库 → 启动服务器 → 打开浏览器
 ```
 
 **详细步骤**：
@@ -434,19 +452,17 @@ vi ~/.skill-forge/config.json
    ```javascript
    // 插入试卷记录
    INSERT INTO quizzes (quiz_id, topic, topic_detail, difficulty, question_count, created_at, status)
-   VALUES (quiz_id, topic, topic_detail, difficulty, question_count, new Date().toISOString(), 'created');
+   VALUES (quiz_id, topic, topic_detail, difficulty, question_count, datetime('now'), 'created');
 
    // 插入题目记录（循环）
    for each question:
-       INSERT INTO questions (quiz_id, question_number, question_type, content, options, correct_answer, score, knowledge_points, explanation)
+       INSERT INTO questions (quiz_id, question_number, question_type, content, options, correct_answer, score, knowledge_points, explanation, source_type, source_url, source_name)
        VALUES (...);
    ```
 
-6. **创建HTML文件**：
-   - 目录：`~/.skill-forge/quizzes/<quiz_id>/`
-   - 文件：`quiz.html`
-   - 包含：`<script src="/quiz-engine.js"></script>`
-   - 数据属性：`data-quiz-id="<quiz_id>"`
+6. **动态渲染准备**：
+   - 试卷页面将通过 `/quiz/:quiz_id` 动态渲染
+   - 不需要生成静态 `quiz.html` 文件
 
 7. **启动HTTP服务器**：
    - 端口：3457
@@ -456,11 +472,11 @@ vi ~/.skill-forge/config.json
 8. **打开浏览器**：
    ```bash
    # macOS
-   open "http://localhost:3457/quizzes/<quiz_id>/quiz.html"
+   open "http://localhost:3457/quiz/<quiz_id>"
    # Linux
-   xdg-open "http://localhost:3457/quizzes/<quiz_id>/quiz.html"
+   xdg-open "http://localhost:3457/quiz/<quiz_id>"
    # Windows
-   Start-Process "http://localhost:3457/quizzes/<quiz_id>/quiz.html"
+   Start-Process "http://localhost:3457/quiz/<quiz_id>"
    ```
 
 ### 3️⃣ 答题与提交流程
@@ -537,9 +553,9 @@ vi ~/.skill-forge/config.json
    UPDATE quizzes SET status = 'completed' WHERE quiz_id = ?;
    ```
 
-6. **生成成绩页**：
-   - 文件：`~/.skill-forge/quizzes/<quiz_id>/result.html`
-   - 内容：总分、得分、正确率、逐题分析、错题汇总
+6. **跳转成绩页**：
+   - URL：`http://localhost:3457/result/<quiz_id>?submission_id=<submission_id>`
+   - 内容：服务器端动态渲染的总分、得分、正确率、逐题分析、错题汇总
 
 ### 4️⃣ AI提问流程（异步状态管理）
 

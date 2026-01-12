@@ -63,8 +63,26 @@ function generateResultHTML(quiz, submission, questions, answers, aiInteractions
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>测验成绩 - ${quiz.topic}</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <!-- 代码高亮 (Local) -->
+    <link rel="stylesheet" href="/vendor/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="/vendor/highlight.js/11.9.0/highlight.min.js"></script>
+    <!-- KaTeX 数学公式渲染 (Local) -->
+    <link rel="stylesheet" href="/vendor/KaTeX/0.16.9/katex.min.css">
+    <script src="/vendor/KaTeX/0.16.9/katex.min.js"></script>
+    <script src="/vendor/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            renderMathInElement(document.body, {
+                delimiters: [
+                    {left: '$$', right: '$$', display: true},
+                    {left: '$', right: '$', display: false},
+                    {left: '\\(', right: '\\)', display: false},
+                    {left: '\\[', right: '\\]', display: true}
+                ],
+                throwOnError : false
+            });
+        });
+    </script>
     <style>
         * {
             margin: 0;
@@ -657,8 +675,8 @@ function generateResultHTML(quiz, submission, questions, answers, aiInteractions
                 // 清除localStorage中的草稿
                 localStorage.removeItem('quiz_${quiz.quiz_id}_draft');
 
-                // 跳转到测验页面
-                window.location.href = '/quizzes/${quiz.quiz_id}/quiz.html';
+                // 跳转到测验页面（动态路由）
+                window.location.href = '/quiz/${quiz.quiz_id}';
             }
         }
 

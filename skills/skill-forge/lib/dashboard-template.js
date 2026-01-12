@@ -19,6 +19,23 @@ function generateDashboardHTML(exams) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Skill Forge - 测验中心</title>
+    <!-- KaTeX 数学公式渲染 (Local) -->
+    <link rel="stylesheet" href="/vendor/KaTeX/0.16.9/katex.min.css">
+    <script src="/vendor/KaTeX/0.16.9/katex.min.js"></script>
+    <script src="/vendor/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            renderMathInElement(document.body, {
+                delimiters: [
+                    {left: '$$', right: '$$', display: true},
+                    {left: '$', right: '$', display: false},
+                    {left: '\\(', right: '\\)', display: false},
+                    {left: '\\[', right: '\\]', display: true}
+                ],
+                throwOnError : false
+            });
+        });
+    </script>
     <style>
         * {
             margin: 0;
@@ -539,11 +556,11 @@ function generateDashboardHTML(exams) {
 
     <script>
         function viewResult(quizId) {
-            window.location.href = '/quizzes/' + quizId + '/result.html';
+            window.location.href = '/result/' + quizId;
         }
 
         function continueQuiz(quizId) {
-            window.location.href = '/quizzes/' + quizId + '/quiz.html';
+            window.location.href = '/quiz/' + quizId;
         }
 
         function retakeQuiz(quizId) {
@@ -551,8 +568,8 @@ function generateDashboardHTML(exams) {
                 // 清除localStorage中的草稿
                 localStorage.removeItem('quiz_' + quizId + '_draft');
 
-                // 跳转到测验页面
-                window.location.href = '/quizzes/' + quizId + '/quiz.html';
+                // 跳转到测验页面（动态路由）
+                window.location.href = '/quiz/' + quizId;
             }
         }
 

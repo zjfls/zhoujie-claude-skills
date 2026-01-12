@@ -183,6 +183,19 @@
         const currentCard = document.querySelector(`.question-card[data-question="${questionNumber}"]`);
         if (currentCard) {
             currentCard.style.display = 'block';
+
+            // 渲染数学公式
+            if (window.renderMathInElement) {
+                renderMathInElement(currentCard, {
+                    delimiters: [
+                        { left: '$$', right: '$$', display: true },
+                        { left: '$', right: '$', display: false },
+                        { left: '\\(', right: '\\)', display: false },
+                        { left: '\\[', right: '\\]', display: true }
+                    ],
+                    throwOnError: false
+                });
+            }
         }
 
         // 更新导航状态
@@ -649,8 +662,8 @@
             // 清除草稿
             localStorage.removeItem(`quiz_${quizState.quizId}_draft`);
 
-            // 跳转到成绩页面
-            window.location.href = `/quizzes/${quizState.quizId}/result.html?submission_id=${result.submission_id}`;
+            // 跳转到成绩页面（动态路由）
+            window.location.href = `/result/${quizState.quizId}?submission_id=${result.submission_id}`;
 
         } catch (error) {
             hideLoadingModal();

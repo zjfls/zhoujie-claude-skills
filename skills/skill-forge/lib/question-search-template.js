@@ -20,6 +20,23 @@ function generateQuestionSearchHTML(query = '', results = []) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>题目搜索 - Skill Forge</title>
+    <!-- KaTeX 数学公式渲染 (Local) -->
+    <link rel="stylesheet" href="/vendor/KaTeX/0.16.9/katex.min.css">
+    <script src="/vendor/KaTeX/0.16.9/katex.min.js"></script>
+    <script src="/vendor/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            renderMathInElement(document.body, {
+                delimiters: [
+                    {left: '$$', right: '$$', display: true},
+                    {left: '$', right: '$', display: false},
+                    {left: '\\(', right: '\\)', display: false},
+                    {left: '\\[', right: '\\]', display: true}
+                ],
+                throwOnError : false
+            });
+        });
+    </script>
     <style>
         * {
             margin: 0;
@@ -305,7 +322,7 @@ function generateQuestionSearchHTML(query = '', results = []) {
                             <span class="question-number">题目 ${idx + 1}</span>
                             <div class="question-meta">
                                 <span>📚 来自:</span>
-                                <a href="/quizzes/${result.quiz_id}/quiz.html" class="quiz-link">
+                                <a href="/quiz/${result.quiz_id}" class="quiz-link">
                                     ${result.quiz_topic}
                                 </a>
                             </div>
