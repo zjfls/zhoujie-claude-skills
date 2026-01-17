@@ -1,0 +1,11 @@
+{
+    "name": "skill-forge-quiz",
+    "version": "1.0.0",
+    "description": "Content generation tools for Skill Forge",
+    "scripts": {
+        "import": "node scripts/import_quiz.js"
+    },
+    "dependencies": {
+        "sqlite3": "^5.1.7"
+    }
+}

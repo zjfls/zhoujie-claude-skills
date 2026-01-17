@@ -1,0 +1,33 @@
+{
+    "topic": "JavaScript Promises",
+    "topic_detail": "Deep dive into Promises, async/await, and error handling",
+    "difficulty": "intermediate",
+    "questions": [
+        {
+            "content": "What is the initial state of a Promise?",
+            "type": "choice",
+            "options": [
+                "A. Fulfilled",
+                "B. Rejected",
+                "C. Pending",
+                "D. Resolved"
+            ],
+            "correct_answer": "C",
+            "explanation": "A Promise starts in the 'pending' state. It transitions to either 'fulfilled' (resolved) or 'rejected'.",
+            "knowledge_points": [
+                "Promise States"
+            ],
+            "score": 10
+        },
+        {
+            "content": "Explain the difference between Promise.all() and Promise.race().",
+            "type": "essay",
+            "correct_answer": "Promise.all waits for all promises to resolve or one to reject. Promise.race settles as soon as the first promise settles (resolves or rejects).",
+            "explanation": "Comparison of combinators.",
+            "knowledge_points": [
+                "Promise Combinators"
+            ],
+            "score": 20
+        }
+    ]
+}

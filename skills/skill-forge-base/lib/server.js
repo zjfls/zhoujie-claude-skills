@@ -12,34 +12,36 @@ const { generateQuizSearchHTML } = require('./quiz-search-template');
 const { generateQuizHTML } = require('./html-template');
 const os = require('os');
 
-// 读取配置文件
+// 读取配置文件（必须存在）
 const CONFIG_PATH = path.join(os.homedir(), '.skill-forge', 'config.json');
-let config = {
-    ai: {
-        model: 'mcs-1',
-        timeout: 120000,
-        cliCommand: 'claude'
-    },
-    server: {
-        port: 3457
-    }
-};
+let config;
 
 try {
-    if (fs.existsSync(CONFIG_PATH)) {
-        const configContent = fs.readFileSync(CONFIG_PATH, 'utf8');
-        config = JSON.parse(configContent);
-        console.log(`✓ 配置已加载: ${CONFIG_PATH}`);
-        console.log(`✓ AI 模型: ${config.ai.model}`);
+    if (!fs.existsSync(CONFIG_PATH)) {
+        console.error(`❌ 配置文件不存在: ${CONFIG_PATH}`);
+        console.error('请先运行初始化或手动创建配置文件。');
+        process.exit(1);
     }
+    const configContent = fs.readFileSync(CONFIG_PATH, 'utf8');
+    config = JSON.parse(configContent);
+
+    // 验证必要的配置项
+    if (!config.ai || !config.ai.model) {
+        console.error('❌ 配置文件缺少 ai.model 字段');
+        process.exit(1);
+    }
+
+    console.log(`✓ 配置已加载: ${CONFIG_PATH}`);
+    console.log(`✓ AI 模型: ${config.ai.model}`);
 } catch (err) {
-    console.warn('⚠️ 配置文件读取失败，使用默认配置:', err.message);
+    console.error('❌ 配置文件读取失败:', err.message);
+    process.exit(1);
 }
 
-const PORT = config.server.port || 3457;
-const AI_TIMEOUT = config.ai.timeout || 120000;
-const AI_MODEL = config.ai.model || 'mcs-1';
-const CLAUDE_CLI = config.ai.cliCommand || 'claude';
+const PORT = config.server?.port || 3457;
+const AI_TIMEOUT = config.ai?.timeout || 120000;
+const AI_MODEL = config.ai.model;  // 必须从配置读取，无默认值
+const CLAUDE_CLI = config.ai?.cliCommand || 'claude';
 
 const MIME_TYPES = {
     '.html': 'text/html; charset=utf-8',

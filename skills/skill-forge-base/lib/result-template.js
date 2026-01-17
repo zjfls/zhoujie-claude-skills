@@ -76,8 +76,8 @@ function generateResultHTML(quiz, submission, questions, answers, aiInteractions
                 delimiters: [
                     {left: '$$', right: '$$', display: true},
                     {left: '$', right: '$', display: false},
-                    {left: '\\(', right: '\\)', display: false},
-                    {left: '\\[', right: '\\]', display: true}
+                    {left: '\\\\(', right: '\\\\)', display: false},
+                    {left: '\\\\[', right: '\\\\]', display: true}
                 ],
                 throwOnError : false
             });
@@ -649,7 +649,8 @@ function generateResultHTML(quiz, submission, questions, answers, aiInteractions
 
         <!-- 操作按钮 -->
         <div class="action-buttons">
-            <button class="btn btn-secondary" onclick="window.history.back()">← 返回</button>
+            <button class="btn btn-secondary" onclick="window.location.href='/dashboard'">🏠 返回首页</button>
+            <button class="btn btn-secondary" onclick="window.history.back()">← 返回上一页</button>
             <button class="btn btn-secondary" onclick="viewHistory()">📊 查看历史记录</button>
             <button class="btn btn-primary" onclick="retakeQuiz()">🔄 重新测验</button>
             <button class="btn btn-primary" onclick="generateLearningPlan()" style="background: linear-gradient(135deg, #43e97b, #38f9d7);">

@@ -39,7 +39,7 @@ class Database {
             const defaultConfig = {
                 version: "1.0.0",
                 ai: {
-                    model: "mcs-1",
+                    model: "",  // 必须手动配置！请填入您的 AI 模型名称
                     timeout: 120000,
                     cliCommand: "claude",
                     temperature: 0.7
