@@ -5,7 +5,19 @@
 
 document.addEventListener('DOMContentLoaded', async () => {
     const navContainer = document.getElementById('nav-content');
-    const directoryContainer = document.getElementById('system-directory');
+    let directoryContainer = document.getElementById('system-directory');
+
+    if (!directoryContainer && navContainer) {
+        const sidebar = navContainer.closest('.sidebar');
+        if (sidebar) {
+            const divider = document.createElement('div');
+            divider.className = 'sidebar-divider';
+            directoryContainer = document.createElement('div');
+            directoryContainer.id = 'system-directory';
+            sidebar.appendChild(divider);
+            sidebar.appendChild(directoryContainer);
+        }
+    }
 
     if (directoryContainer) {
         renderSystemDirectory(directoryContainer);

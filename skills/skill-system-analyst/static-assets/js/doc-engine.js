@@ -10,6 +10,8 @@ let systemMapInstance = null;
 let modalMapInstance = null;
 
 document.addEventListener('DOMContentLoaded', () => {
+    ensureDashboardButton();
+
     // 1. Show Loading State
     const mapContainer = document.querySelector('.system-map-container');
     if (mapContainer) {
@@ -52,6 +54,21 @@ function displayError(selectorOrEl, msg) {
         err.innerText = '可视化渲染失败: ' + msg;
         el.replaceWith(err);
     }
+}
+
+function ensureDashboardButton() {
+    // Only inject on document pages (dashboard pages don't have this meta).
+    if (!document.querySelector('meta[name="doc-id"]')) return;
+
+    const header = document.querySelector('main.main-content > header');
+    if (!header) return;
+
+    if (header.querySelector('.header-actions')) return;
+
+    const actions = document.createElement('div');
+    actions.className = 'header-actions';
+    actions.innerHTML = `<a class="btn btn-secondary" href="../index.html">← Dashboard</a>`;
+    header.insertBefore(actions, header.firstChild);
 }
 
 function initSystemMap() {
@@ -157,13 +174,10 @@ function clampTransform(transform, extent, map) {
 }
 
 function initSystemMapModal(markdown) {
-    const expandBtn = document.getElementById('system-map-expand');
-    const modal = document.getElementById('system-map-modal');
-    const modalSvg = document.getElementById('system-map-modal-svg');
-    const closeBtn = document.getElementById('system-map-modal-close');
-    const fitBtn = document.getElementById('system-map-modal-fit');
+    const expandBtn = ensureSystemMapExpandButton();
+    const { modal, modalSvg, closeBtn, fitBtn, backdrop } = ensureSystemMapModalElements();
 
-    if (!modal || !modalSvg || !expandBtn) return;
+    if (!expandBtn || !modal || !modalSvg) return;
 
     const open = () => {
         modal.classList.add('is-open');
@@ -197,13 +211,70 @@ function initSystemMapModal(markdown) {
         }
     });
 
-    modal.querySelector('.modal-backdrop')?.addEventListener('click', close);
+    backdrop?.addEventListener('click', close);
 
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && modal.classList.contains('is-open')) {
             close();
         }
     });
+}
+
+function ensureSystemMapExpandButton() {
+    const mapContainer = document.querySelector('.system-map-container');
+    if (!mapContainer) return null;
+
+    let actions = mapContainer.querySelector('.system-map-actions');
+    if (!actions) {
+        actions = document.createElement('div');
+        actions.className = 'system-map-actions';
+        mapContainer.appendChild(actions);
+    }
+
+    let expandBtn = document.getElementById('system-map-expand');
+    if (!expandBtn) {
+        expandBtn = document.createElement('button');
+        expandBtn.type = 'button';
+        expandBtn.id = 'system-map-expand';
+        expandBtn.className = 'system-map-btn';
+        expandBtn.textContent = 'Open';
+        actions.appendChild(expandBtn);
+    }
+
+    return expandBtn;
+}
+
+function ensureSystemMapModalElements() {
+    let modal = document.getElementById('system-map-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'system-map-modal';
+        modal.className = 'modal';
+        modal.setAttribute('aria-hidden', 'true');
+        modal.innerHTML = `
+            <div class="modal-backdrop" data-action="close"></div>
+            <div class="modal-dialog" role="dialog" aria-modal="true" aria-label="System Model">
+                <div class="modal-titlebar">
+                    <div class="modal-title">System Model</div>
+                    <div class="modal-titlebar-actions">
+                        <button type="button" class="btn btn-secondary" id="system-map-modal-fit">Fit</button>
+                        <button type="button" class="btn btn-secondary" id="system-map-modal-close">Close</button>
+                    </div>
+                </div>
+                <div class="modal-body">
+                    <svg id="system-map-modal-svg" class="markmap"></svg>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    const modalSvg = modal.querySelector('#system-map-modal-svg');
+    const closeBtn = modal.querySelector('#system-map-modal-close');
+    const fitBtn = modal.querySelector('#system-map-modal-fit');
+    const backdrop = modal.querySelector('.modal-backdrop');
+
+    return { modal, modalSvg, closeBtn, fitBtn, backdrop };
 }
 
 function initMermaid() {
