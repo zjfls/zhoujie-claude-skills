@@ -4,23 +4,43 @@ const path = require('path');
 const { exec } = require('child_process');
 
 const PORT = 8085;
-const DOCS_ROOT = __dirname; // Assumes script is in docs/
+const DOCS_ROOT = resolveDocsRoot();
 
 const MIME_TYPES = {
     '.html': 'text/html',
     '.js': 'text/javascript',
     '.css': 'text/css',
     '.json': 'application/json',
+    '.woff': 'font/woff',
+    '.woff2': 'font/woff2',
     '.png': 'image/png',
     '.jpg': 'image/jpeg',
     '.svg': 'image/svg+xml'
 };
 
+function resolveDocsRoot() {
+    const cwd = process.cwd();
+    const candidate = path.join(cwd, 'docs');
+    if (fs.existsSync(candidate)) {
+        try {
+            if (fs.statSync(candidate).isDirectory()) {
+                return candidate;
+            }
+        } catch { }
+    }
+    return cwd;
+}
+
 const server = http.createServer((req, res) => {
     console.log(`${req.method} ${req.url}`);
 
+    const requestUrl = new URL(req.url, `http://localhost:${PORT}`);
+    const pathname = decodeURIComponent(requestUrl.pathname || '/');
+
+    const relativePath = (pathname === '/' ? 'index.html' : pathname).replace(/^\/+/, '');
+
     // Normalized path
-    let filePath = path.join(DOCS_ROOT, req.url === '/' ? 'index.html' : req.url);
+    let filePath = path.join(DOCS_ROOT, relativePath);
 
     // Prevent directory traversal
     if (!filePath.startsWith(DOCS_ROOT)) {

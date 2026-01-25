@@ -6,67 +6,110 @@ const { DOCS_DIR } = require('./manifest-manager');
 const SKILL_ASSETS_DIR = path.resolve(__dirname, '../static-assets');
 
 function installAssets() {
-    console.log("Installing/Updating static assets...");
     try {
-        if (fs.existsSync(SKILL_ASSETS_DIR)) {
-            const entries = fs.readdirSync(SKILL_ASSETS_DIR, { withFileTypes: true });
-
-            for (let entry of entries) {
-                const srcPath = path.join(SKILL_ASSETS_DIR, entry.name);
-
-                // 1. Files to put in docs root (server scripts)
-                if (['server.js', 'start_preview.sh', 'start_preview.bat'].includes(entry.name)) {
-                    const destPath = path.join(DOCS_DIR, entry.name);
-                    fs.copyFileSync(srcPath, destPath);
-
-                    if (entry.name.endsWith('.sh')) {
-                        try { fs.chmodSync(destPath, '755'); } catch (e) { }
-                    }
-                }
-                // 2. Everything else goes to docs/assets/
-                else {
-                    const assetDestDir = path.join(DOCS_DIR, 'assets');
-                    if (!fs.existsSync(assetDestDir)) fs.mkdirSync(assetDestDir, { recursive: true });
-
-                    const destPath = path.join(assetDestDir, entry.name);
-
-                    if (entry.isDirectory()) {
-                        copyFolder(srcPath, destPath);
-                    } else {
-                        fs.copyFileSync(srcPath, destPath);
-                    }
-                }
-            }
-            console.log("Assets installed successfully.");
-        } else {
+        if (!fs.existsSync(SKILL_ASSETS_DIR)) {
             console.warn("Skill assets dir not found:", SKILL_ASSETS_DIR);
+            return;
         }
 
-        // Also install the portal index if missing
+        fs.mkdirSync(DOCS_DIR, { recursive: true });
+
+        // Prefer symlinks so docs always use the latest skill assets without re-copying.
+        // Fallback to copying if symlinks are not supported.
+        ensureSymlinkOrCopy(SKILL_ASSETS_DIR, path.join(DOCS_DIR, 'assets'));
+
+        // Keep root scripts available for convenience.
+        // Note: server.js resolves the docs root from the current working directory.
+        ['server.js', 'start_preview.sh', 'start_preview.bat'].forEach((filename) => {
+            const src = path.join(SKILL_ASSETS_DIR, filename);
+            if (!fs.existsSync(src)) return;
+            ensureSymlinkOrCopy(src, path.join(DOCS_DIR, filename));
+        });
+
         const portalTemplate = path.resolve(__dirname, '../templates/portal-index.html');
         const portalTarget = path.join(DOCS_DIR, 'index.html');
         if (!fs.existsSync(portalTarget) && fs.existsSync(portalTemplate)) {
-            fs.copyFileSync(portalTemplate, portalTarget);
-            console.log("Portal index created.");
+            ensureSymlinkOrCopy(portalTemplate, portalTarget);
         }
+
+        console.log("Docs assets ready (linked to skill assets).");
 
     } catch (e) {
         console.error("Asset installation failed:", e);
     }
 }
 
-// Simple recursive copy helper
+function ensureSymlinkOrCopy(srcPath, destPath) {
+    const srcStat = safeStat(srcPath);
+    if (!srcStat) {
+        console.warn("Missing source:", srcPath);
+        return;
+    }
+
+    const existing = safeLstat(destPath);
+    if (existing) {
+        if (existing.isSymbolicLink()) {
+            const linkTarget = safeReadLink(destPath);
+            const resolved = linkTarget ? path.resolve(path.dirname(destPath), linkTarget) : null;
+            const desired = path.resolve(srcPath);
+            if (resolved === desired) return;
+            fs.unlinkSync(destPath);
+        } else {
+            moveAside(destPath);
+        }
+    }
+
+    try {
+        const isDir = srcStat.isDirectory();
+        const type = process.platform === 'win32'
+            ? (isDir ? 'junction' : 'file')
+            : (isDir ? 'dir' : 'file');
+
+        fs.symlinkSync(srcPath, destPath, type);
+        return;
+    } catch (e) {
+        console.warn(`Symlink failed (${destPath}). Falling back to copy.`, e.message);
+    }
+
+    // Fallback: copy
+    if (srcStat.isDirectory()) {
+        copyFolder(srcPath, destPath);
+    } else {
+        fs.copyFileSync(srcPath, destPath);
+        if (destPath.endsWith('.sh')) {
+            try { fs.chmodSync(destPath, '755'); } catch { }
+        }
+    }
+}
+
+function safeStat(p) {
+    try { return fs.statSync(p); } catch { return null; }
+}
+
+function safeLstat(p) {
+    try { return fs.lstatSync(p); } catch { return null; }
+}
+
+function safeReadLink(p) {
+    try { return fs.readlinkSync(p); } catch { return null; }
+}
+
+function moveAside(p) {
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const backup = `${p}.bak-${stamp}`;
+    fs.renameSync(p, backup);
+    console.log(`Moved existing path to backup: ${backup}`);
+}
+
+// Simple recursive copy helper (used only for symlink fallback)
 function copyFolder(src, dest) {
     if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
     const entries = fs.readdirSync(src, { withFileTypes: true });
-    for (let entry of entries) {
+    for (const entry of entries) {
         const srcPath = path.join(src, entry.name);
         const destPath = path.join(dest, entry.name);
-        if (entry.isDirectory()) {
-            copyFolder(srcPath, destPath);
-        } else {
-            fs.copyFileSync(srcPath, destPath);
-        }
+        if (entry.isDirectory()) copyFolder(srcPath, destPath);
+        else fs.copyFileSync(srcPath, destPath);
     }
 }
 
