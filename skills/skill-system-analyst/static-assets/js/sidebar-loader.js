@@ -5,6 +5,12 @@
 
 document.addEventListener('DOMContentLoaded', async () => {
     const navContainer = document.getElementById('nav-content');
+    const directoryContainer = document.getElementById('system-directory');
+
+    if (directoryContainer) {
+        renderSystemDirectory(directoryContainer);
+    }
+
     if (!navContainer) return;
 
     try {
@@ -26,6 +32,54 @@ document.addEventListener('DOMContentLoaded', async () => {
         // navContainer.innerHTML = `<div style="padding:1rem; color:#64748b">Navigation unavailable</div>`;
     }
 });
+
+function renderSystemDirectory(container) {
+    const sections = Array.from(document.querySelectorAll('main .content section'));
+    if (sections.length === 0) return;
+
+    const usedIds = new Map();
+    const entries = [];
+
+    sections.forEach((section, index) => {
+        const heading = section.querySelector('h2');
+        if (!heading) return;
+
+        const title = heading.textContent.trim();
+        if (!title) return;
+
+        if (!section.id) {
+            const base = slugify(title) || `section-${index + 1}`;
+            const next = (usedIds.get(base) || 0) + 1;
+            usedIds.set(base, next);
+            section.id = next === 1 ? base : `${base}-${next}`;
+        }
+
+        entries.push({ id: section.id, title });
+    });
+
+    if (entries.length === 0) return;
+
+    let html = `<div class="nav-category">系统目录</div>`;
+    entries.forEach((entry) => {
+        html += `
+            <a href="#${entry.id}" class="nav-item">
+                ${entry.title}
+            </a>
+        `;
+    });
+    container.innerHTML = html;
+}
+
+function slugify(text) {
+    return text
+        .toLowerCase()
+        .replace(/[\u200B-\u200D\uFEFF]/g, '')
+        .replace(/[^a-z0-9\u4e00-\u9fa5\s-]/g, '')
+        .trim()
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .slice(0, 64);
+}
 
 function renderSidebar(manifest, container) {
     // 1. Determine current page ID from meta tag or URL

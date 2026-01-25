@@ -39,11 +39,19 @@
             <div id="nav-content">
                 <!-- Loaded by sidebar-loader.js -->
             </div>
+
+            <div class="sidebar-divider"></div>
+
+            <!-- System Directory injected by JS -->
+            <div id="system-directory"></div>
         </nav>
 
         <!-- Main Content -->
         <main class="main-content">
             <header>
+                <div class="header-actions">
+                    <a class="btn btn-secondary" href="../index.html">← Dashboard</a>
+                </div>
                 <div class="meta-info">
                     <span class="meta-item">ID: {{doc_id}}</span>
                     <span class="meta-item">Updated: {{last_updated}}</span>
@@ -54,6 +62,9 @@
             <!-- System Model Map -->
             <div class="system-map-container">
                 <div class="system-map-header">System Model</div>
+                <div class="system-map-actions">
+                    <button type="button" class="system-map-btn" id="system-map-expand">Open</button>
+                </div>
                 <svg id="system-map" class="markmap"></svg>
             </div>
 
@@ -73,6 +84,23 @@
     <!-- Hidden Data for System Map -->
     <div id="system-map-data" style="display:none">
         {{mindmap_data}}
+    </div>
+
+    <!-- System Map Modal -->
+    <div id="system-map-modal" class="modal" aria-hidden="true">
+        <div class="modal-backdrop" data-action="close"></div>
+        <div class="modal-dialog" role="dialog" aria-modal="true" aria-label="System Model">
+            <div class="modal-titlebar">
+                <div class="modal-title">System Model</div>
+                <div class="modal-titlebar-actions">
+                    <button type="button" class="btn btn-secondary" id="system-map-modal-fit">Fit</button>
+                    <button type="button" class="btn btn-secondary" id="system-map-modal-close">Close</button>
+                </div>
+            </div>
+            <div class="modal-body">
+                <svg id="system-map-modal-svg" class="markmap"></svg>
+            </div>
+        </div>
     </div>
 
     <!-- Scripts (Local Vendor) -->
