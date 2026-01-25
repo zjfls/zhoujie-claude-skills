@@ -11,6 +11,7 @@ let modalMapInstance = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     ensureDashboardButton();
+    ensureMarkmapTheme();
 
     // 1. Show Loading State
     const mapContainer = document.querySelector('.system-map-container');
@@ -71,6 +72,12 @@ function ensureDashboardButton() {
     header.insertBefore(actions, header.firstChild);
 }
 
+function ensureMarkmapTheme() {
+    // markmap-view injects a dark theme selector: `.markmap-dark .markmap { ... }`
+    // Our docs theme is dark, so enable it globally for better contrast.
+    document.documentElement.classList.add('markmap-dark');
+}
+
 function initSystemMap() {
     const svg = document.querySelector('#system-map');
     const dataContainer = document.querySelector('#system-map-data');
@@ -110,9 +117,29 @@ function renderMarkmap(svgEl, markdown) {
         throw new Error(`Markmap API incomplete. Transformer: ${!!Transformer}, Markmap: ${!!Markmap}`);
     }
 
+    applyMarkmapOverrides(svgEl);
+
     const transformer = new Transformer();
     const { root } = transformer.transform(markdown);
     return Markmap.create(svgEl, null, root);
+}
+
+function applyMarkmapOverrides(svgEl) {
+    if (!svgEl?.style?.setProperty) return;
+
+    // Wrap long labels so the system map doesn't become ultra-wide and unreadable.
+    const isModal = svgEl.id === 'system-map-modal-svg';
+    svgEl.style.setProperty('--markmap-max-width', isModal ? '520px' : '360px');
+
+    // Improve readability on dark background (default markmap font is very light).
+    svgEl.style.setProperty('--markmap-font', '500 14px/20px var(--font-sans)');
+    svgEl.style.setProperty('--markmap-text-color', 'var(--text-primary)');
+    svgEl.style.setProperty('--markmap-code-bg', 'rgba(255, 255, 255, 0.08)');
+    svgEl.style.setProperty('--markmap-code-color', 'var(--text-primary)');
+    svgEl.style.setProperty('--markmap-a-color', '#60a5fa');
+    svgEl.style.setProperty('--markmap-a-hover-color', '#93c5fd');
+    svgEl.style.setProperty('--markmap-circle-open-bg', 'rgba(255, 255, 255, 0.35)');
+    svgEl.style.setProperty('--markmap-highlight-node-bg', 'rgba(59, 130, 246, 0.14)');
 }
 
 function applySoftPanBounds(map) {
