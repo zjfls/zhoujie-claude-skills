@@ -16,7 +16,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // 1. Show Loading State
     const mapContainer = document.querySelector('.system-map-container');
     if (mapContainer) {
-        mapContainer.style.background = '#fafafa';
+        // Keep the mindmap container consistent with the dark docs theme.
+        mapContainer.style.background = 'var(--card-bg)';
     }
 
     // 2. Wait for Libs
@@ -129,10 +130,10 @@ function applyMarkmapOverrides(svgEl) {
 
     // Wrap long labels so the system map doesn't become ultra-wide and unreadable.
     const isModal = svgEl.id === 'system-map-modal-svg';
-    svgEl.style.setProperty('--markmap-max-width', isModal ? '520px' : '360px');
+    svgEl.style.setProperty('--markmap-max-width', isModal ? '420px' : '320px');
 
     // Improve readability on dark background (default markmap font is very light).
-    svgEl.style.setProperty('--markmap-font', '500 14px/20px var(--font-sans)');
+    svgEl.style.setProperty('--markmap-font', '500 16px/22px var(--font-sans)');
     svgEl.style.setProperty('--markmap-text-color', 'var(--text-primary)');
     svgEl.style.setProperty('--markmap-code-bg', 'rgba(255, 255, 255, 0.08)');
     svgEl.style.setProperty('--markmap-code-color', 'var(--text-primary)');
