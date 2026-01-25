@@ -5,16 +5,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{title}} - System Analysis</title>
-
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
-        rel="stylesheet">
+    <meta name="doc-id" content="{{doc_id}}">
 
     <!-- Styles -->
     <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
+    <link rel="stylesheet" href="../assets/vendor/highlightjs/default.min.css">
 
     <!-- Markmap styles -->
     <style>
@@ -81,13 +77,14 @@
 
     <!-- Scripts (Local Vendor) -->
     <script src="../assets/vendor/d3/d3.min.js"></script>
+    <script src="../assets/vendor/katex/katex.min.js"></script>
     <script src="../assets/vendor/markmap/markmap-lib.min.js"></script>
     <script src="../assets/vendor/markmap/markmap-view.min.js"></script>
     <script src="../assets/vendor/mermaid/mermaid.min.js"></script>
 
     <!-- Local Engine -->
-    <script src="/assets/js/doc-engine.js"></script>
-    <script src="/assets/js/sidebar-loader.js"></script>
+    <script src="../assets/js/doc-engine.js"></script>
+    <script src="../assets/js/sidebar-loader.js"></script>
 </body>
 
 </html>

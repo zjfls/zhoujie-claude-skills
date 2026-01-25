@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 d3: !!window.d3,
                 mermaid: !!window.mermaid
             });
-            if (!hasMarkmap) displayError('#system-map', 'Markmap libraries failed to load (Network/CDN error).');
+            if (!hasMarkmap) displayError('#system-map', 'Markmap libraries failed to load (check local asset paths).');
             if (!hasMermaid) document.querySelectorAll('.mermaid').forEach(el => displayError(el, 'Mermaid library failed to load.'));
         }
     }, 100);
@@ -64,7 +64,7 @@ function initSystemMap() {
     }
 
     try {
-        const { Transformer, Markmap, loadCSS, loadJS } = window.markmap;
+        const { Transformer, Markmap } = window.markmap;
 
         // Defensive check
         if (!Transformer || !Markmap) {
@@ -72,15 +72,16 @@ function initSystemMap() {
         }
 
         const transformer = new Transformer();
-        const { root, features } = transformer.transform(markdown);
-
-        if (features) {
-            const { styles, scripts } = transformer.getUsedAssets(features);
-            if (styles) loadCSS(styles);
-            if (scripts) loadJS(scripts, { getMarkmap: () => window.markmap });
-        }
+        const { root } = transformer.transform(markdown);
 
         Markmap.create(svg, null, root);
+
+        // Ensure layout stays correct when fonts (e.g. KaTeX) finish loading.
+        if (document.fonts?.ready && window.markmap?.refreshHook) {
+            document.fonts.ready
+                .then(() => window.markmap.refreshHook.call())
+                .catch(() => { });
+        }
         console.log("Markmap rendered.");
 
     } catch (e) {
