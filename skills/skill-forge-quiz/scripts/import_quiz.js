@@ -5,6 +5,27 @@ const net = require('net');
 const { spawn } = require('child_process');
 const DBWriter = require('../lib/db-writer');
 
+function parseArgs(argv) {
+  const fix = argv.includes('--fix');
+  const file = argv.find((a) => a && !a.startsWith('--'));
+  return { fix, file };
+}
+
+function printUsageAndExit() {
+  console.log(`
+Usage:
+  node scripts/import_quiz.js [--fix] <path_to_quiz_json>
+
+Description:
+  Imports a quiz from a JSON file into the Skill Forge database.
+  If the Skill Forge Dashboard server is not running, it will be started automatically.
+
+Options:
+  --fix   Apply safe normalizations (e.g. strip "A./B." prefixes from options).
+`);
+  process.exit(0);
+}
+
 function readSkillForgePortFromConfig() {
   const configPath = path.join(os.homedir(), '.skill-forge', 'config.json');
   try {
@@ -94,40 +115,108 @@ async function ensureSkillForgeServerRunning() {
   return port;
 }
 
-// 帮助信息
-if (process.argv.includes('--help') || process.argv.length < 3) {
-  console.log(`
-Usage: node scripts/import_quiz.js <path_to_quiz_json>
-
-Description:
-  Imports a quiz from a JSON file into the Skill Forge database.
-  If the Skill Forge Dashboard server is not running, it will be started automatically.
-
-JSON File Format:
-  {
-    "topic": "Subject Topic",
-    "topic_detail": "Detailed description (optional)",
-    "difficulty": "beginner|intermediate|advanced",
-    "questions": [
-      {
-        "content": "Question text",
-        "type": "choice|essay|code",
-        "options": ["A", "B", "C", "D"], // Required for choice type
-        "correct_answer": "Correct Answer",
-        "explanation": "Detailed explanation",
-        "knowledge_points": ["Point1", "Point2"],
-        "score": 10
-      }
-    ]
-  }
-
-Example:
-  node scripts/import_quiz.js ./my_quiz.json
-    `);
-  process.exit(0);
+function stripMathSegments(text) {
+  if (typeof text !== 'string' || !text) return '';
+  return text
+    .replace(/\$\$[\s\S]*?\$\$/g, '')
+    .replace(/\$[^$]*?\$/g, '')
+    .replace(/\\\\\([\s\S]*?\\\\\)/g, '')
+    .replace(/\\\\\[[\s\S]*?\\\\\]/g, '');
 }
 
-const filePath = process.argv[2];
+function findSuspiciousMathOutsideDelimiters(text) {
+  const outside = stripMathSegments(text);
+  if (!outside) return [];
+
+  const patterns = [
+    /\\(lim|frac|sum|int|sqrt|prod|max|min)\b/,
+    /\blim_\{[^}]*\}/i,
+    /[a-zA-Z]+\^\{[^}]+\}/,
+    /[a-zA-Z]+_\{[^}]+\}/
+  ];
+
+  const hits = [];
+  for (const re of patterns) {
+    const m = outside.match(re);
+    if (m) hits.push(m[0]);
+  }
+  return hits;
+}
+
+function stripChoiceLabelPrefix(text) {
+  if (typeof text !== 'string') return text;
+  return text.replace(/^\s*[A-Ha-h][\.\)、\)]\s+/, '');
+}
+
+function validateAndNormalizeQuizData(quizData, { fix }) {
+  const errors = [];
+  const normalized = { ...quizData };
+  const optionPrefixRe = /^\s*[A-Ha-h][\.\)、\)]\s+/;
+
+  if (Array.isArray(quizData.questions)) {
+    normalized.questions = quizData.questions.map((q, idx) => {
+      const qn = idx + 1;
+      const question = { ...q };
+
+      const fieldsToCheck = [
+        ['content', question.content],
+        ['correct_answer', question.correct_answer],
+        ['explanation', question.explanation]
+      ];
+
+      if (Array.isArray(question.options)) {
+        const prefixed = question.options
+          .map((opt, i) => ({ opt, i }))
+          .filter(({ opt }) => typeof opt === 'string' && optionPrefixRe.test(opt));
+        if (prefixed.length > 0) {
+          if (fix) {
+            question.options = question.options.map((opt) => stripChoiceLabelPrefix(opt));
+          } else {
+            errors.push(
+              `Q${qn}.options: 检测到手写的 A./B. 前缀（会导致页面重复显示），请删除前缀或使用 --fix`
+            );
+          }
+        }
+        fieldsToCheck.push(...question.options.map((opt, i) => [`options[${i}]`, opt]));
+      }
+
+      for (const [field, value] of fieldsToCheck) {
+        if (typeof value !== 'string') continue;
+        const hits = findSuspiciousMathOutsideDelimiters(value);
+        if (hits.length > 0) {
+          errors.push(
+            `Q${qn}.${field}: 疑似数学表达式未用 $...$/$$...$$ 包裹（例如: ${hits
+              .slice(0, 3)
+              .join(', ')}）`
+          );
+        }
+      }
+
+      return question;
+    });
+  }
+
+  if (errors.length > 0) {
+    const guidance =
+      `数学公式必须使用 LaTeX 并放在分隔符内，例如：` +
+      `"$\\\\lim_{x\\\\to a} f(x) = L$"。\n` +
+      `另外，options[] 里不要手写 "A."/ "B." 前缀（页面会自动加）。`;
+    throw new Error(`检测到不符合数学公式规范的文本：\n- ${errors.join('\n- ')}\n\n${guidance}`);
+  }
+
+  return normalized;
+}
+
+// 帮助信息
+if (process.argv.includes('--help')) {
+  printUsageAndExit();
+}
+
+const { fix, file: filePath } = parseArgs(process.argv.slice(2));
+if (!filePath) {
+  printUsageAndExit();
+}
+
 const absolutePath = path.resolve(filePath);
 
 if (!fs.existsSync(absolutePath)) {
@@ -138,7 +227,8 @@ if (!fs.existsSync(absolutePath)) {
 async function importQuiz() {
   try {
     const fileContent = fs.readFileSync(absolutePath, 'utf8');
-    const quizData = JSON.parse(fileContent);
+    const quizDataRaw = JSON.parse(fileContent);
+    const quizData = validateAndNormalizeQuizData(quizDataRaw, { fix });
 
     // 验证必要字段
     if (!quizData.topic || !Array.isArray(quizData.questions) || quizData.questions.length === 0) {
