@@ -650,11 +650,6 @@ function generateQuestionCard(question) {
     };
 
     let answerArea = '';
-    const stripOptionPrefix = (text) => {
-        if (typeof text !== 'string') return text;
-        // Strip user-provided labels like "A. xxx" / "B、xxx" to avoid "A. A. xxx"
-        return text.replace(/^\s*[A-Ha-h][\.\)、\)]\s+/, '');
-    };
 
     if (question.question_type === 'choice') {
         // 单选题
@@ -664,7 +659,7 @@ function generateQuestionCard(question) {
                 ${options.map((opt, i) => `
                     <label class="option-item">
                         <input type="radio" name="question_${question.question_number}" value="${String.fromCharCode(65 + i)}">
-                        <span class="option-label"><strong>${String.fromCharCode(65 + i)}.</strong> ${stripOptionPrefix(opt)}</span>
+                        <span class="option-label"><strong>${String.fromCharCode(65 + i)}.</strong> ${opt}</span>
                     </label>
                 `).join('')}
             </div>
@@ -678,7 +673,7 @@ function generateQuestionCard(question) {
                 ${options.map((opt, i) => `
                     <label class="option-item">
                         <input type="checkbox" name="question_${question.question_number}" value="${String.fromCharCode(65 + i)}">
-                        <span class="option-label"><strong>${String.fromCharCode(65 + i)}.</strong> ${stripOptionPrefix(opt)}</span>
+                        <span class="option-label"><strong>${String.fromCharCode(65 + i)}.</strong> ${opt}</span>
                     </label>
                 `).join('')}
             </div>
