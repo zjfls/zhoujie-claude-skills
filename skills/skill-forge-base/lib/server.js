@@ -12,36 +12,48 @@ const { generateQuizSearchHTML } = require('./quiz-search-template');
 const { generateQuizHTML } = require('./html-template');
 const os = require('os');
 
-// 读取配置文件（必须存在）
+// 配置文件路径：由 db.initDatabase() 负责首次创建
 const CONFIG_PATH = path.join(os.homedir(), '.skill-forge', 'config.json');
-let config;
 
-try {
-    if (!fs.existsSync(CONFIG_PATH)) {
-        console.error(`❌ 配置文件不存在: ${CONFIG_PATH}`);
-        console.error('请先运行初始化或手动创建配置文件。');
-        process.exit(1);
+let config = null;
+let PORT = 3457;
+let AI_TIMEOUT = 120000;
+let AI_MODEL = null;
+let CLAUDE_CLI = 'claude';
+
+function loadConfig() {
+    try {
+        if (!fs.existsSync(CONFIG_PATH)) {
+            console.warn(`⚠️ 配置文件不存在，将使用默认配置启动: ${CONFIG_PATH}`);
+            config = {};
+            return;
+        }
+
+        const configContent = fs.readFileSync(CONFIG_PATH, 'utf8');
+        config = JSON.parse(configContent);
+
+        PORT = config.server?.port || 3457;
+        AI_TIMEOUT = config.ai?.timeout || 120000;
+        CLAUDE_CLI = config.ai?.cliCommand || 'claude';
+
+        if (config.ai?.model) {
+            AI_MODEL = config.ai.model;
+            console.log(`✓ 配置已加载: ${CONFIG_PATH}`);
+            console.log(`✓ AI 模型: ${config.ai.model}`);
+        } else {
+            AI_MODEL = null;
+            console.warn(`⚠️ AI 模型未配置（config.ai.model 为空）。AI 解析功能将不可用，但 Dashboard/测验功能仍可使用。`);
+            console.log(`✓ 配置已加载: ${CONFIG_PATH}`);
+        }
+    } catch (err) {
+        console.error('❌ 配置文件读取失败:', err.message);
+        config = {};
+        PORT = 3457;
+        AI_TIMEOUT = 120000;
+        AI_MODEL = null;
+        CLAUDE_CLI = 'claude';
     }
-    const configContent = fs.readFileSync(CONFIG_PATH, 'utf8');
-    config = JSON.parse(configContent);
-
-    // 验证必要的配置项
-    if (!config.ai || !config.ai.model) {
-        console.error('❌ 配置文件缺少 ai.model 字段');
-        process.exit(1);
-    }
-
-    console.log(`✓ 配置已加载: ${CONFIG_PATH}`);
-    console.log(`✓ AI 模型: ${config.ai.model}`);
-} catch (err) {
-    console.error('❌ 配置文件读取失败:', err.message);
-    process.exit(1);
 }
-
-const PORT = config.server?.port || 3457;
-const AI_TIMEOUT = config.ai?.timeout || 120000;
-const AI_MODEL = config.ai.model;  // 必须从配置读取，无默认值
-const CLAUDE_CLI = config.ai?.cliCommand || 'claude';
 
 const MIME_TYPES = {
     '.html': 'text/html; charset=utf-8',
@@ -1615,6 +1627,7 @@ ${wd.ai_feedback ? `**AI反馈**：${wd.ai_feedback}` : ''}
 
 // 启动服务器
 db.initDatabase().then(() => {
+    loadConfig();
     server.listen(PORT, () => {
         console.log(`✓ Skill Forge服务器运行在 http://localhost:${PORT}/`);
         console.log(`✓ 数据目录: ${DATA_DIR}`);
@@ -1628,6 +1641,10 @@ db.initDatabase().then(() => {
  */
 function callClaudeAI(prompt) {
     return new Promise((resolve, reject) => {
+        if (!AI_MODEL) {
+            reject(new Error('AI 模型未配置：请在 ~/.skill-forge/config.json 中设置 ai.model'));
+            return;
+        }
         console.log('调用Claude CLI...');
         const claudeProcess = spawn(CLAUDE_CLI, [
             '--print',

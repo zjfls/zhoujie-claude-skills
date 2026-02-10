@@ -1,6 +1,98 @@
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
+const net = require('net');
+const { spawn } = require('child_process');
 const DBWriter = require('../lib/db-writer');
+
+function readSkillForgePortFromConfig() {
+  const configPath = path.join(os.homedir(), '.skill-forge', 'config.json');
+  try {
+    if (!fs.existsSync(configPath)) return 3457;
+    const raw = fs.readFileSync(configPath, 'utf8');
+    const cfg = JSON.parse(raw);
+    const port = cfg?.server?.port;
+    return typeof port === 'number' && Number.isFinite(port) ? port : 3457;
+  } catch {
+    return 3457;
+  }
+}
+
+function isPortOpen(port, host = '127.0.0.1', timeoutMs = 250) {
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    let settled = false;
+
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      try {
+        socket.destroy();
+      } catch {}
+      resolve(result);
+    };
+
+    socket.setTimeout(timeoutMs);
+    socket.once('connect', () => finish(true));
+    socket.once('timeout', () => finish(false));
+    socket.once('error', () => finish(false));
+    socket.connect(port, host);
+  });
+}
+
+async function waitForPort(port, timeoutMs = 8000) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (await isPortOpen(port)) return true;
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  return false;
+}
+
+function startSkillForgeServerInBackground(logPath) {
+  const serverJs = path.resolve(__dirname, '../../skill-forge-base/lib/server.js');
+  const serverCwd = path.resolve(__dirname, '../../skill-forge-base');
+
+  if (!fs.existsSync(serverJs)) {
+    throw new Error(`Skill Forge server entry not found: ${serverJs}`);
+  }
+
+  const logFd = fs.openSync(logPath, 'a');
+  const child = spawn(process.execPath, [serverJs], {
+    cwd: serverCwd,
+    detached: true,
+    stdio: ['ignore', logFd, logFd]
+  });
+  child.unref();
+  return child.pid;
+}
+
+async function ensureSkillForgeServerRunning() {
+  const port = readSkillForgePortFromConfig();
+
+  if (await isPortOpen(port)) return port;
+
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const logPath = path.join(os.tmpdir(), `skill-forge-server.${timestamp}.log`);
+
+  console.log(`ℹ️ Skill Forge Dashboard 未运行，尝试启动（port=${port}）...`);
+  try {
+    startSkillForgeServerInBackground(logPath);
+  } catch (err) {
+    throw new Error(`启动 Skill Forge 失败：${err.message}`);
+  }
+
+  const ok = await waitForPort(port, 10000);
+  if (!ok) {
+    throw new Error(
+      `Skill Forge 启动超时（port=${port}）。请检查日志：${logPath}\n` +
+        `也可以手动运行：node ${path.resolve(__dirname, '../../skill-forge-base/lib/server.js')}`
+    );
+  }
+
+  console.log(`✅ Skill Forge Dashboard 已启动：http://localhost:${port}/dashboard`);
+  return port;
+}
 
 // 帮助信息
 if (process.argv.includes('--help') || process.argv.length < 3) {
@@ -9,6 +101,7 @@ Usage: node scripts/import_quiz.js <path_to_quiz_json>
 
 Description:
   Imports a quiz from a JSON file into the Skill Forge database.
+  If the Skill Forge Dashboard server is not running, it will be started automatically.
 
 JSON File Format:
   {
@@ -51,6 +144,9 @@ async function importQuiz() {
     if (!quizData.topic || !Array.isArray(quizData.questions) || quizData.questions.length === 0) {
       throw new Error('Invalid JSON format: Missing "topic" or "questions" array.');
     }
+
+    // 确保 skill-forge-base 的 Dashboard 服务已启动（它也会负责初始化 DB/schema/config）
+    const port = await ensureSkillForgeServerRunning();
 
     // 初始化数据库连接
     const db = new DBWriter();
@@ -99,7 +195,8 @@ async function importQuiz() {
     await db.insertQuestions(quizId, questionsToInsert);
 
     console.log(`✅ Successfully imported quiz with ${questionsToInsert.length} questions.`);
-    console.log(`   Run 'npm start' and visit http://localhost:3457/quiz/${quizId} to take the quiz.`);
+    console.log(`   Take the quiz: http://localhost:${port}/quiz/${quizId}`);
+    console.log(`   Dashboard:     http://localhost:${port}/dashboard`);
 
     // 关闭连接 (Database 类可能没有显式的 close 等待 Promise，这里简单退出)
     // db.close(); // 同步关闭

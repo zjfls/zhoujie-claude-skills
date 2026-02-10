@@ -25,6 +25,8 @@ node scripts/import_quiz.js <JSON文件路径>
 node scripts/import_quiz.js ./quiz_template.json
 ```
 
+> 说明：`import_quiz.js` 会先检查 `skill-forge-base` 的 Dashboard 服务是否已启动；若未启动会自动启动（并等待端口就绪），然后再执行导入。
+
 ### JSON 模板格式
 参考项目中的 `quiz_template.json` 文件：
 
@@ -51,6 +53,10 @@ node scripts/import_quiz.js ./quiz_template.json
 
 ### 1. 试卷生成流程
 当用户请求"生成试卷"或"创建测验"时，Agent 必须遵循以下流程：
+
+0.  **确保 Dashboard 已运行**：
+    *   通过端口检测确认 `skill-forge-base` 的 Node 服务已启动（默认 `localhost:3457`，以 `~/.skill-forge/config.json` 为准）。
+    *   若未启动，则启动 `skill-forge-base`（推荐直接调用 `node scripts/import_quiz.js ...`，该脚本会自动完成检查与启动）。
 
 1.  **参数确认**：主动询问并确认以下 4 个关键参数：
     *   **主题 (Topic)**: 测验的核心知识点或技术栈（例如：React Hooks, HTTP 协议）。
@@ -90,6 +96,7 @@ node scripts/import_quiz.js ./quiz_template.json
 ### 2. 试卷导入流程
 当用户提供现成的 JSON 文件进行导入时：
 
+0.  **确保 Dashboard 已运行**（同上）。
 1.  **格式验证**：检查文件是否符合 `quiz_template.json` 的结构（必须包含 `topic` 和 `questions` 数组）。
 2.  **执行导入**：直接运行 `node scripts/import_quiz.js <filepath>`。
 

@@ -21,7 +21,7 @@ description: Skill Forge 基础设施。初始化数据库、运行 Dashboard �
 任何操作之前，确保系统已初始化。此操作是幂等的（可重复执行）。
 
 ```bash
-# 运行服务器时会自动触发初始化
+# 运行服务器时会自动触发初始化（首次运行会创建 ~/.skill-forge/ 目录与默认 config.json，并初始化数据库表）
 node lib/server.js
 ```
 
@@ -47,3 +47,7 @@ open "http://localhost:3457/dashboard"
 - **Node.js**: >= 14.0.0
 - **SQLite3**: 数据存储
 - **数据目录**: `~/.skill-forge/` (与 `skill-forge-quiz` 共享)
+
+## 配置说明（重要）
+- Dashboard/测验功能可在未配置 AI 模型时运行。
+- 若要启用“题目深度解析”等 AI 功能，需要在 `~/.skill-forge/config.json` 中设置 `ai.model`（以及可选的 `ai.cliCommand`）。

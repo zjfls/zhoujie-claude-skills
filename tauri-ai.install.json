@@ -1,0 +1,10 @@
+{
+  "defaultCategory": "learn",
+  "categoriesByNamePrefix": {
+    "system-": "system",
+    "code-": "code"
+  },
+  "configSetName": "标准skill集",
+  "skillOverrides": {}
+}
+
